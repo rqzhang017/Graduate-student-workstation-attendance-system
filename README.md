@@ -1,6 +1,6 @@
-# Graduate Student Workstation Attendance System
+# 研究生工位打卡与时间管理系统
 
-一个面向博士生、研究生及个人科研工作者的轻量级工位打卡与时间管理系统。
+一个面向研究生及个人科研工作者的轻量级工位打卡与时间管理系统。
 
 本项目是一个纯前端、单文件、零后端依赖的网页应用，适合个人本地使用。你只需要打开一个 HTML 文件，就可以完成打卡、任务管理、专注计时、请假记录、规则设置和统计分析。
 
@@ -42,9 +42,13 @@
   - 手机克制统计
   - 专注时长统计
 
-## Screenshots
+## 界面预览
 
-你可以在仓库中后续补充界面截图，例如：
+当前仓库已经预留截图展示位置。将界面截图保存到 `docs/interface-preview.png` 后，README 会直接显示。
+
+![系统界面预览](docs/interface-preview.png)
+
+建议后续补充这些截图：
 
 - 打卡首页
 - 规则设置页
@@ -65,7 +69,9 @@
 
 ```text
 .
-├── 博士上班打卡 .html
+├── 研究生工位打卡与时间管理系统.html
+├── docs/
+│   └── interface-preview.png
 ├── README.md
 └── LICENSE
 ```
@@ -94,7 +100,7 @@ cd Graduate-student-workstation-attendance-system
 3. 直接用浏览器打开：
 
 ```text
-博士上班打卡 .html
+研究生工位打卡与时间管理系统.html
 ```
 
 也可以直接双击该文件运行。
@@ -120,7 +126,7 @@ cd Graduate-student-workstation-attendance-system
 
 这个项目适合以下场景：
 
-- 博士生/研究生日常工位打卡
+- 研究生日常工位打卡
 - 个人科研时间管理
 - 实验室个人执行监督
 - 轻量级自我约束与习惯养成
