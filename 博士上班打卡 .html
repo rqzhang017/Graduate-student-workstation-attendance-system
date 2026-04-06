@@ -1,0 +1,3239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>博士生工位打卡与时间管理系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1d4ed8',
+                        secondary: '#2563eb',
+                        accent: '#3b82f6',
+                        success: '#16a34a',
+                        warning: '#d97706',
+                        danger: '#dc2626',
+                        light: '#f8fbff',
+                        dark: '#0f172a'
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-slow': 'pulse 3s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer base {
+            :root {
+                --page-bg: #edf4ff;
+                --page-bg-strong: #f8fbff;
+                --ink: #0f172a;
+                --muted: #64748b;
+                --line: rgba(37, 99, 235, 0.08);
+                --line-strong: rgba(37, 99, 235, 0.14);
+                --panel: rgba(255, 255, 255, 0.88);
+                --panel-soft: rgba(248, 251, 255, 0.94);
+                --halo-a: rgba(37, 99, 235, 0.16);
+                --halo-b: rgba(59, 130, 246, 0.12);
+                --shadow-lg: 0 26px 54px rgba(37, 99, 235, 0.08), 0 8px 18px rgba(15, 23, 42, 0.04);
+                --shadow-md: 0 14px 32px rgba(37, 99, 235, 0.06), 0 4px 12px rgba(15, 23, 42, 0.03);
+            }
+
+            html {
+                scroll-behavior: smooth;
+            }
+
+            body {
+                color: var(--ink);
+                background:
+                    radial-gradient(circle at 12% 8%, var(--halo-b), transparent 24%),
+                    radial-gradient(circle at 88% 10%, var(--halo-a), transparent 22%),
+                    linear-gradient(180deg, var(--page-bg-strong) 0%, var(--page-bg) 100%);
+            }
+
+            body::before,
+            body::after {
+                content: '';
+                position: fixed;
+                inset: auto;
+                pointer-events: none;
+                z-index: 0;
+                border-radius: 9999px;
+                filter: blur(70px);
+                opacity: 0.6;
+            }
+
+            body::before {
+                width: 18rem;
+                height: 18rem;
+                top: 5rem;
+                left: -4rem;
+                background: rgba(59, 130, 246, 0.12);
+            }
+
+            body::after {
+                width: 20rem;
+                height: 20rem;
+                top: 8rem;
+                right: -5rem;
+                background: rgba(37, 99, 235, 0.12);
+            }
+
+            input,
+            select,
+            textarea {
+                @apply rounded-2xl border-slate-200 bg-white/80 text-slate-800 shadow-sm;
+            }
+
+            input:focus,
+            select:focus,
+            textarea:focus {
+                @apply ring-2 ring-primary/15 border-primary/30 outline-none;
+            }
+        }
+
+        @layer utilities {
+            .app-surface {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(18px);
+                -webkit-backdrop-filter: blur(18px);
+            }
+
+            .subtle-surface {
+                background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,250,252,0.84) 100%);
+                border: 1px solid rgba(15, 23, 42, 0.06);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), var(--shadow-md);
+            }
+
+            .section-appear {
+                animation: sectionRise 0.28s ease-out;
+            }
+
+            .glass-effect {
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+            .btn-shadow {
+                box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18), inset 0 1px 0 rgba(255,255,255,0.22);
+            }
+            .btn-shadow:active {
+                transform: translateY(1px);
+                box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16), inset 0 1px 0 rgba(255,255,255,0.18);
+            }
+            .achievement-popup {
+                animation: popup 0.5s ease-out, fadeOut 0.5s ease-in 3.5s forwards;
+            }
+            @keyframes sectionRise {
+                0% { transform: translateY(8px); opacity: 0; }
+                100% { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes popup {
+                0% { transform: scale(0); opacity: 0; }
+                70% { transform: scale(1.1); opacity: 1; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes fadeOut {
+                0% { transform: scale(1); opacity: 1; }
+                100% { transform: scale(0.9); opacity: 0; }
+            }
+
+            body .container {
+                position: relative;
+                z-index: 1;
+            }
+
+            body header {
+                @apply mb-10 text-center;
+            }
+
+            body header h1 {
+                @apply text-4xl md:text-5xl font-extrabold tracking-tight;
+                letter-spacing: -0.06em;
+            }
+
+            body header h1 {
+                background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 56%, #3b82f6 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+            }
+
+            body header p {
+                @apply inline-flex items-center px-4 py-2 rounded-full text-sm md:text-base;
+                background: rgba(255,255,255,0.72);
+                border: 1px solid var(--line);
+                box-shadow: var(--shadow-md);
+            }
+
+            body nav > div,
+            body main > section {
+                @apply rounded-[28px];
+                background: var(--panel);
+                border: 1px solid var(--line);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(18px);
+                -webkit-backdrop-filter: blur(18px);
+            }
+
+            body main > section:not(.hidden) {
+                animation: sectionRise 0.28s ease-out;
+            }
+
+            @media (min-width: 1280px) {
+                body main > section {
+                    min-height: calc(100vh - 12rem);
+                }
+            }
+
+            body main > section > h2 {
+                @apply mb-8;
+                letter-spacing: -0.03em;
+            }
+
+            body main > section > h2 i {
+                @apply inline-flex items-center justify-center rounded-2xl mr-3;
+                width: 2.4rem;
+                height: 2.4rem;
+                background: linear-gradient(135deg, rgba(15, 76, 129, 0.12), rgba(31, 122, 140, 0.16));
+                border: 1px solid rgba(15, 76, 129, 0.08);
+            }
+
+            body .bg-blue-50 {
+                background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(246,249,251,0.88) 100%) !important;
+                border: 1px solid rgba(37, 99, 235, 0.08);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.74), var(--shadow-md);
+            }
+
+            body nav button {
+                @apply rounded-2xl border border-transparent transition-all duration-200;
+            }
+
+            body nav button:not(.bg-primary) {
+                background: rgba(15, 23, 42, 0.03);
+                color: #1f2937;
+            }
+
+            body nav button:not(.bg-primary):hover {
+                background: rgba(37, 99, 235, 0.08) !important;
+                color: #1d4ed8;
+                transform: translateX(4px);
+            }
+
+            body nav button.bg-primary,
+            body button.bg-primary {
+                background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%) !important;
+                border-color: rgba(255,255,255,0.24);
+                color: white !important;
+            }
+
+            body nav button.bg-primary {
+                box-shadow: 0 18px 34px rgba(37, 99, 235, 0.24);
+            }
+
+            body button {
+                @apply rounded-2xl transition-all duration-200;
+            }
+
+            body button.bg-primary:hover,
+            body button.bg-danger:hover {
+                transform: translateY(-1px);
+                filter: saturate(1.04) brightness(1.02);
+            }
+
+            body button.bg-danger {
+                background: linear-gradient(135deg, #dc2626 0%, #f97316 100%) !important;
+                color: white !important;
+                border-color: rgba(255,255,255,0.2);
+            }
+
+            body button.bg-gray-200 {
+                background: rgba(148, 163, 184, 0.12) !important;
+                color: #64748b !important;
+                border: 1px solid rgba(100, 116, 139, 0.12);
+            }
+
+            body .focus-preset,
+            body .stats-period-btn:not(.bg-primary) {
+                background: rgba(255,255,255,0.8) !important;
+                border: 1px solid rgba(37, 99, 235, 0.12);
+            }
+
+            body .focus-preset:hover,
+            body .stats-period-btn:not(.bg-primary):hover {
+                background: rgba(37, 99, 235, 0.07) !important;
+                border-color: rgba(37, 99, 235, 0.18);
+            }
+
+            body table {
+                @apply rounded-2xl overflow-hidden;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            body thead th {
+                background: rgba(241,245,249,0.9) !important;
+                color: #64748b !important;
+                border-bottom-color: rgba(148, 163, 184, 0.18) !important;
+            }
+
+            body tbody td {
+                border-bottom-color: rgba(226, 232, 240, 0.85) !important;
+            }
+
+            body tbody tr:hover td {
+                background: rgba(248, 250, 252, 0.9);
+            }
+
+            body .text-gray-600,
+            body .text-gray-500 {
+                color: var(--muted) !important;
+            }
+
+            body .text-gray-800 {
+                color: var(--ink) !important;
+            }
+
+            body .text-primary {
+                color: #1d4ed8 !important;
+            }
+
+            body .text-6xl,
+            body .text-5xl,
+            body .text-4xl,
+            body .text-3xl {
+                letter-spacing: -0.05em;
+            }
+
+            body .bg-blue-50.text-center,
+            body .bg-blue-50 .text-center {
+                position: relative;
+            }
+
+            body .sticky {
+                top: 1.25rem;
+            }
+
+            @media (min-width: 1280px) {
+                body nav > div {
+                    padding: 1.25rem;
+                }
+
+                body main > section {
+                    padding: 1.75rem;
+                }
+            }
+
+            body canvas {
+                filter: saturate(0.92);
+            }
+
+            body #achievement-popup {
+                background: rgba(255,255,255,0.94);
+                border: 1px solid rgba(255,255,255,0.72);
+                box-shadow: 0 32px 80px rgba(15,23,42,0.18);
+                backdrop-filter: blur(20px);
+            }
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen">
+    <div class="container mx-auto px-4 md:px-8 xl:px-10 py-8 md:py-10 max-w-[1800px]">
+        <!-- 顶部标题 -->
+        <header class="text-center">
+            <h1 class="text-4xl font-bold text-primary mb-2">博士生工位打卡与时间管理系统</h1>
+            <p class="text-gray-600" id="current-date-time">2023年7月21日 星期五 08:00</p>
+        </header>
+
+        <!-- 主内容区 -->
+        <div class="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6 xl:gap-8 items-start">
+            <!-- 左侧导航 -->
+            <nav class="min-w-0">
+                <div class="bg-white rounded-lg shadow-lg p-4 sticky top-4">
+                    <ul class="space-y-2">
+                        <li>
+                            <button id="nav-checkin" class="w-full text-left px-4 py-3 rounded-md bg-primary text-white flex items-center justify-between">
+                                <span class="font-medium">打卡记录</span>
+                                <i class="fa fa-clock-o"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-phone" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">手机克制</span>
+                                <i class="fa fa-mobile"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-tasks" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">任务管理</span>
+                                <i class="fa fa-tasks"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-focus" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">专注时长</span>
+                                <i class="fa fa-hourglass-half"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-leave" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">请假记录</span>
+                                <i class="fa fa-calendar-minus-o"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-stats" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">统计分析</span>
+                                <i class="fa fa-bar-chart"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-rules" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">规则设置</span>
+                                <i class="fa fa-sliders"></i>
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-8 p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-medium text-primary mb-2">今日状态</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span>上午打卡:</span>
+                                <span id="today-morning-status" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>下午打卡:</span>
+                                <span id="today-afternoon-status" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>晚上打卡:</span>
+                                <span id="today-evening-status" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>手机克制:</span>
+                                <span id="today-phone-count" class="font-medium">0 次</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>进行中任务:</span>
+                                <span id="today-active-task" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>今日专注:</span>
+                                <span id="today-focus-duration" class="font-medium">0 分钟</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 右侧内容区 -->
+            <main class="min-w-0">
+                <!-- 打卡记录模块 -->
+                <section id="checkin-section" class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-clock-o mr-2 text-primary"></i>打卡记录
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- 上午打卡 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">上午打卡</h3>
+                            <div class="text-sm text-gray-600 mb-2">
+                                <div id="morning-checkin-window-label">上班时间: 06:00 - 12:00</div>
+                                <div id="morning-checkout-window-label">下班时间: 09:00 - 14:00</div>
+                                <div id="morning-qualified-label" class="text-green-600">合格标准: 06:00-08:00上班, 09:00-12:00下班</div>
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <button id="morning-checkin" class="w-full bg-primary hover:bg-primary/90 text-white py-3 px-4 rounded-lg font-medium btn-shadow transition-all">
+                                    上午上班
+                                </button>
+                                <button id="morning-checkout" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium transition-all" disabled>
+                                    上午下班
+                                </button>
+                            </div>
+                            <div class="mt-4 text-center text-sm">
+                                <div id="morning-checkin-time" class="text-gray-600">上班: -</div>
+                                <div id="morning-checkout-time" class="text-gray-600">下班: -</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 下午打卡 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">下午打卡</h3>
+                            <div class="text-sm text-gray-600 mb-2">
+                                <div id="afternoon-checkin-window-label">上班时间: 12:00 - 17:00</div>
+                                <div id="afternoon-checkout-window-label">下班时间: 14:00 - 20:00</div>
+                                <div id="afternoon-qualified-label" class="text-green-600">合格标准: 12:00-14:00上班, 14:00-18:00下班</div>
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <button id="afternoon-checkin" class="w-full bg-primary hover:bg-primary/90 text-white py-3 px-4 rounded-lg font-medium btn-shadow transition-all">
+                                    下午上班
+                                </button>
+                                <button id="afternoon-checkout" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium transition-all" disabled>
+                                    下午下班
+                                </button>
+                            </div>
+                            <div class="mt-4 text-center text-sm">
+                                <div id="afternoon-checkin-time" class="text-gray-600">上班: -</div>
+                                <div id="afternoon-checkout-time" class="text-gray-600">下班: -</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 晚上打卡 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">晚上打卡</h3>
+                            <div class="text-sm text-gray-600 mb-2">
+                                <div id="evening-checkin-window-label">上班时间: 17:00 - 22:00</div>
+                                <div id="evening-checkout-window-label">下班时间: 20:00 - 24:00</div>
+                                <div id="evening-qualified-label" class="text-green-600">合格标准: 17:00-19:00上班, 21:00-22:00下班</div>
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <button id="evening-checkin" class="w-full bg-primary hover:bg-primary/90 text-white py-3 px-4 rounded-lg font-medium btn-shadow transition-all">
+                                    晚上上班
+                                </button>
+                                <button id="evening-checkout" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium transition-all" disabled>
+                                    晚上下班
+                                </button>
+                            </div>
+                            <div class="mt-4 text-center text-sm">
+                                <div id="evening-checkin-time" class="text-gray-600">上班: -</div>
+                                <div id="evening-checkout-time" class="text-gray-600">下班: -</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">今日打卡记录</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white">
+                                <thead>
+                                    <tr>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时段</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上班时间</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">下班时间</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上班状态</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">下班状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="today-checkin-table">
+                                    <tr>
+                                        <td class="py-2 px-4 border-b border-gray-200">上午</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-morning-checkin">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-morning-checkout">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-morning-checkin-status">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-morning-checkout-status">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-4 border-b border-gray-200">下午</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-afternoon-checkin">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-afternoon-checkout">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-afternoon-checkin-status">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-afternoon-checkout-status">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-4 border-b border-gray-200">晚上</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-evening-checkin">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-evening-checkout">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-evening-checkin-status">-</td>
+                                        <td class="py-2 px-4 border-b border-gray-200" id="table-evening-checkout-status">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 手机克制模块 -->
+                <section id="phone-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-mobile mr-2 text-primary"></i>手机克制记录
+                    </h2>
+                    
+                    <div class="text-center mb-8">
+                        <div class="text-6xl font-bold text-primary mb-2" id="phone-resist-count">0</div>
+                        <p class="text-gray-600">已忍住玩手机的总次数</p>
+                    </div>
+                    
+                    <div class="flex justify-center mb-8">
+                        <button id="add-phone-resist" class="bg-primary hover:bg-primary/90 text-white py-4 px-8 rounded-lg font-medium text-xl btn-shadow transition-all flex items-center">
+                            <i class="fa fa-plus-circle mr-2"></i>又忍住了一次
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 今日记录 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">今日记录</h3>
+                            <div class="text-4xl font-bold text-primary mb-2" id="today-phone-resist-count">0</div>
+                            <p class="text-gray-600">今日忍住次数</p>
+                            <div class="mt-4 text-sm text-gray-600">
+                                <div id="today-phone-resist-times">暂无记录</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 成就系统 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">成就系统</h3>
+                            <div class="space-y-3" id="achievements-list">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-success flex items-center justify-center text-white mr-2">
+                                        <i class="fa fa-check"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium">初次克制</div>
+                                        <div class="text-xs text-gray-600">第一次忍住玩手机</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white mr-2">
+                                        <i class="fa fa-lock"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-500">小有成就</div>
+                                        <div class="text-xs text-gray-500">忍住玩手机10次</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white mr-2">
+                                        <i class="fa fa-lock"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-500">意志坚强</div>
+                                        <div class="text-xs text-gray-500">忍住玩手机50次</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white mr-2">
+                                        <i class="fa fa-lock"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-500">手机克星</div>
+                                        <div class="text-xs text-gray-500">忍住玩手机100次</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white mr-2">
+                                        <i class="fa fa-lock"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-500">专注大师</div>
+                                        <div class="text-xs text-gray-500">忍住玩手机365次</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 任务管理模块 -->
+                <section id="tasks-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-tasks mr-2 text-primary"></i>任务管理
+                    </h2>
+                    
+                    <!-- 任务添加 -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold text-primary mb-3">添加新任务</h3>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="task-name" placeholder="输入任务名称" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                            <button id="start-task" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                开始任务
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 当前任务 -->
+                    <div id="current-task-container" class="bg-blue-50 rounded-lg p-4 mb-6 hidden">
+                        <h3 class="text-lg font-semibold text-primary mb-3">当前进行中任务</h3>
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <div class="text-xl font-medium" id="current-task-name">-</div>
+                                <div class="text-sm text-gray-600" id="current-task-time">已进行: 00:00:00</div>
+                            </div>
+                            <button id="end-task" class="bg-danger hover:bg-danger/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                结束任务
+                            </button>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="task-progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 今日任务列表 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">今日任务列表</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white">
+                                <thead>
+                                    <tr>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务名称</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">开始时间</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">结束时间</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">持续时间</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="today-tasks-table">
+                                    <!-- 任务列表将通过JavaScript动态生成 -->
+                                    <tr>
+                                        <td colspan="5" class="py-4 px-4 text-center text-gray-500">暂无任务记录</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 日程表视图 -->
+                    <div class="mt-8">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">今日日程表</h3>
+                        <div class="relative h-96 bg-blue-50 rounded-lg p-4">
+                            <!-- 时间轴 -->
+                            <div class="absolute left-0 top-0 bottom-0 w-16 border-r border-gray-300">
+                                <div class="h-full flex flex-col justify-between py-2">
+                                    <div class="text-xs text-gray-600">06:00</div>
+                                    <div class="text-xs text-gray-600">08:00</div>
+                                    <div class="text-xs text-gray-600">10:00</div>
+                                    <div class="text-xs text-gray-600">12:00</div>
+                                    <div class="text-xs text-gray-600">14:00</div>
+                                    <div class="text-xs text-gray-600">16:00</div>
+                                    <div class="text-xs text-gray-600">18:00</div>
+                                    <div class="text-xs text-gray-600">20:00</div>
+                                    <div class="text-xs text-gray-600">22:00</div>
+                                    <div class="text-xs text-gray-600">24:00</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 日程内容 -->
+                            <div id="schedule-content" class="ml-16 h-full relative">
+                                <!-- 日程项目将通过JavaScript动态生成 -->
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    暂无日程安排
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 专注时长模块 -->
+                <section id="focus-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-hourglass-half mr-2 text-primary"></i>专注时长
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-primary mb-4">开始一段专注</h3>
+                            <div class="flex flex-col md:flex-row gap-3 items-end">
+                                <div class="w-full">
+                                    <label for="focus-duration-input" class="block text-sm font-medium text-gray-700 mb-1">专注时长（分钟）</label>
+                                    <input id="focus-duration-input" type="number" min="1" max="480" value="25" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                </div>
+                                <button id="start-focus-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                    开始专注
+                                </button>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="25">25 分钟</button>
+                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="45">45 分钟</button>
+                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="60">60 分钟</button>
+                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="90">90 分钟</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-primary mb-4">当前倒计时</h3>
+                            <div class="text-5xl font-bold text-primary text-center mb-3" id="focus-countdown-display">00:00</div>
+                            <div class="text-center text-sm text-gray-600 mb-4" id="focus-session-status">当前没有进行中的专注计时</div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                <div id="focus-progress-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <div class="flex justify-center gap-3">
+                                <button id="stop-focus-session" class="bg-danger hover:bg-danger/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all hidden">
+                                    提前结束并记录
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">今日专注概览</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="focus-today-total">0</div>
+                                    <div class="text-sm text-gray-600">今日专注分钟</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="focus-today-count">0</div>
+                                    <div class="text-sm text-gray-600">完成场次</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">今日专注记录</h3>
+                            <div id="focus-today-records" class="space-y-2 text-sm text-gray-700">
+                                <div class="text-gray-500">暂无专注记录</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 请假记录模块 -->
+                <section id="leave-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-calendar-minus-o mr-2 text-primary"></i>请假记录
+                    </h2>
+                    
+                    <!-- 添加请假 -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold text-primary mb-3">添加请假</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="leave-date" class="block text-sm font-medium text-gray-700 mb-1">请假日期</label>
+                                <input type="date" id="leave-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label for="leave-reason" class="block text-sm font-medium text-gray-700 mb-1">请假理由</label>
+                                <input type="text" id="leave-reason" placeholder="输入请假理由" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button id="add-leave" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                提交请假
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 请假记录列表 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">请假记录列表</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white">
+                                <thead>
+                                    <tr>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">请假日期</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">请假理由</th>
+                                        <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leave-records-table">
+                                    <!-- 请假记录将通过JavaScript动态生成 -->
+                                    <tr>
+                                        <td colspan="3" class="py-4 px-4 text-center text-gray-500">暂无请假记录</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 统计分析模块 -->
+                <section id="stats-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-bar-chart mr-2 text-primary"></i>统计分析
+                    </h2>
+                    
+                    <!-- 统计周期选择 -->
+                    <div class="flex flex-wrap gap-3 mb-6">
+                        <button class="stats-period-btn bg-primary text-white py-2 px-4 rounded-lg font-medium" data-period="week">本周</button>
+                        <button class="stats-period-btn bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium" data-period="month">本月</button>
+                        <button class="stats-period-btn bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium" data-period="year">本年</button>
+                    </div>
+                    
+                    <!-- 打卡统计 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">打卡率统计</h3>
+                            <div class="h-64">
+                                <canvas id="checkin-rate-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">时段打卡统计</h3>
+                            <div class="h-64">
+                                <canvas id="checkin-period-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 任务统计 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">每日任务时长</h3>
+                            <div class="h-64">
+                                <canvas id="task-duration-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">手机克制统计</h3>
+                            <div class="h-64">
+                                <canvas id="phone-resist-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">每日专注时长</h3>
+                            <div class="h-64">
+                                <canvas id="focus-duration-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 综合统计 -->
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="total-checkin-days">0</div>
+                            <div class="text-sm text-gray-600">总打卡天数</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="total-task-hours">0</div>
+                            <div class="text-sm text-gray-600">总任务时长(小时)</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="total-phone-resist">0</div>
+                            <div class="text-sm text-gray-600">总克制次数</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="total-focus-hours">0</div>
+                            <div class="text-sm text-gray-600">总专注时长(小时)</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="achievement-count">0</div>
+                            <div class="text-sm text-gray-600">获得成就数</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 规则设置模块 -->
+                <section id="rules-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-sliders mr-2 text-primary"></i>规则设置
+                    </h2>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-sm text-amber-900">
+                        修改后立即保存到本地，并立刻按新规则重算已有打卡记录的合格状态与展示。
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-4">上午规则</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">上班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-morning-checkin-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-morning-checkin-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-morning-checkin-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-morning-checkin-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">下班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-morning-checkout-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-morning-checkout-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-morning-checkout-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-morning-checkout-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-4">下午规则</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">上班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-afternoon-checkin-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-afternoon-checkin-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-afternoon-checkin-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-afternoon-checkin-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">下班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-afternoon-checkout-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-afternoon-checkout-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-afternoon-checkout-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-afternoon-checkout-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-4">晚上规则</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">上班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-evening-checkin-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-evening-checkin-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-evening-checkin-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-evening-checkin-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4">
+                                    <h4 class="font-medium text-gray-800 mb-3">下班</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <label class="text-sm text-gray-600">可打卡开始<input id="rules-evening-checkout-allowed-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">可打卡结束<input id="rules-evening-checkout-allowed-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格开始<input id="rules-evening-checkout-qualified-start" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                        <label class="text-sm text-gray-600">合格结束<input id="rules-evening-checkout-qualified-end" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex flex-col md:flex-row gap-3">
+                        <button id="save-rules" class="bg-primary hover:bg-primary/90 text-white py-3 px-6 rounded-lg font-medium btn-shadow transition-all">
+                            保存规则并立即生效
+                        </button>
+                        <button id="reset-rules" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium transition-all">
+                            恢复默认规则
+                        </button>
+                    </div>
+                    <p id="rules-save-status" class="mt-3 text-sm text-gray-500">当前规则已从本地加载。</p>
+                </section>
+            </main>
+        </div>
+    </div>
+    
+    <!-- 成就弹窗 -->
+    <div id="achievement-popup" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-80 hidden achievement-popup">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa fa-trophy text-2xl text-white"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2" id="popup-achievement-title">新成就达成！</h3>
+            <p class="text-gray-600 mb-4" id="popup-achievement-desc">恭喜你达成了新的成就</p>
+            <div class="w-full bg-yellow-100 rounded-full h-2.5 mb-4">
+                <div class="bg-yellow-400 h-2.5 rounded-full" style="width: 100%"></div>
+            </div>
+            <p class="text-sm text-gray-500">继续保持，再接再厉！</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let checkinData = {}; // 打卡数据
+        let phoneResistData = { totalCount: 0, records: {} }; // 手机克制数据
+        let taskData = {}; // 任务数据
+        let leaveData = []; // 请假数据
+        let achievements = []; // 成就数据
+        let currentTask = null; // 当前进行中的任务
+        let rulesConfig = null; // 打卡规则配置
+        let focusData = {}; // 专注记录
+        let currentFocusSession = null; // 当前专注会话
+        let taskTimer = null; // 任务计时器
+        let taskStartTime = null; // 任务开始时间
+        let focusTimer = null; // 专注计时器
+        
+        const STORAGE_KEYS = {
+            appState: 'phdWorkstationAppState',
+            appStateBackup: 'phdWorkstationAppStateBackup',
+            checkinData: 'checkinData',
+            phoneResistData: 'phoneResistData',
+            taskData: 'taskData',
+            leaveData: 'leaveData',
+            achievements: 'achievements',
+            currentTask: 'currentTask',
+            rulesConfig: 'rulesConfig',
+            focusData: 'focusData',
+            currentFocusSession: 'currentFocusSession'
+        };
+
+        const PERIOD_LABELS = {
+            morning: '上午',
+            afternoon: '下午',
+            evening: '晚上'
+        };
+
+        const ACTION_LABELS = {
+            checkIn: '上班',
+            checkOut: '下班'
+        };
+        
+        // 成就列表
+        const achievementList = [
+            { id: 'first_resist', name: '初次克制', description: '第一次忍住玩手机', requirement: 1 },
+            { id: 'small_achievement', name: '小有成就', description: '忍住玩手机10次', requirement: 10 },
+            { id: 'strong_will', name: '意志坚强', description: '忍住玩手机50次', requirement: 50 },
+            { id: 'phone_killer', name: '手机克星', description: '忍住玩手机100次', requirement: 100 },
+            { id: 'focus_master', name: '专注大师', description: '忍住玩手机365次', requirement: 365 },
+            { id: 'first_checkin', name: '初次打卡', description: '第一次完成打卡', requirement: 1, type: 'checkin' },
+            { id: 'week_streak', name: '一周坚持', description: '连续打卡7天', requirement: 7, type: 'streak' },
+            { id: 'month_streak', name: '月度达人', description: '连续打卡30天', requirement: 30, type: 'streak' },
+            { id: 'task_master', name: '任务大师', description: '完成100个任务', requirement: 100, type: 'task' },
+            { id: 'time_master', name: '时间大师', description: '累计任务时间达到1000小时', requirement: 1000, type: 'task_hour' }
+        ];
+        
+        // DOM 加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化数据
+            initData();
+
+            // 初始化规则展示与设置
+            applyRulesToCheckinCard();
+            initRuleSettings();
+            
+            // 更新当前日期时间
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // 初始化导航切换
+            initNavigation();
+            
+            // 初始化打卡功能
+            initCheckin();
+            
+            // 初始化手机克制功能
+            initPhoneResist();
+            
+            // 初始化任务管理功能
+            initTaskManagement();
+
+            // 初始化专注时长功能
+            initFocusManagement();
+            
+            // 初始化请假功能
+            initLeaveManagement();
+            
+            // 初始化统计分析功能
+            initStatistics();
+            
+            // 更新今日状态
+            updateTodayStatus();
+        });
+        
+        function safeParseJSON(rawValue, fallbackValue) {
+            if (!rawValue) return fallbackValue;
+            
+            try {
+                return JSON.parse(rawValue);
+            } catch (error) {
+                console.warn('本地数据解析失败，已使用默认值。', error);
+                return fallbackValue;
+            }
+        }
+        
+        function formatLocalDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function parseStoredDate(dateString) {
+            if (!dateString) return null;
+            
+            const parts = dateString.split('-').map(Number);
+            if (parts.length !== 3 || parts.some(Number.isNaN)) {
+                return null;
+            }
+            
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
+        function createDefaultRulesConfig() {
+            return {
+                morning: {
+                    checkIn: {
+                        allowed: { start: '06:00', end: '12:00' },
+                        qualified: { start: '06:00', end: '08:00' }
+                    },
+                    checkOut: {
+                        allowed: { start: '09:00', end: '14:00' },
+                        qualified: { start: '09:00', end: '12:00' }
+                    }
+                },
+                afternoon: {
+                    checkIn: {
+                        allowed: { start: '12:00', end: '17:00' },
+                        qualified: { start: '12:00', end: '14:00' }
+                    },
+                    checkOut: {
+                        allowed: { start: '14:00', end: '20:00' },
+                        qualified: { start: '14:00', end: '18:00' }
+                    }
+                },
+                evening: {
+                    checkIn: {
+                        allowed: { start: '17:00', end: '22:00' },
+                        qualified: { start: '17:00', end: '19:00' }
+                    },
+                    checkOut: {
+                        allowed: { start: '20:00', end: '24:00' },
+                        qualified: { start: '21:00', end: '22:00' }
+                    }
+                }
+            };
+        }
+
+        function normalizeTimeValue(timeValue) {
+            if (!timeValue) return '00:00';
+            if (timeValue === '24:00') return '24:00';
+            const parts = timeValue.split(':');
+            if (parts.length < 2) return '00:00';
+            const hour = String(Math.min(Math.max(parseInt(parts[0], 10) || 0, 0), 23)).padStart(2, '0');
+            const minute = String(Math.min(Math.max(parseInt(parts[1], 10) || 0, 0), 59)).padStart(2, '0');
+            return `${hour}:${minute}`;
+        }
+
+        function normalizeRulesConfig(config) {
+            const defaultConfig = createDefaultRulesConfig();
+            const normalized = JSON.parse(JSON.stringify(defaultConfig));
+
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                ['checkIn', 'checkOut'].forEach(action => {
+                    const source = config?.[period]?.[action] || {};
+                    normalized[period][action].allowed.start = normalizeTimeValue(source.allowed?.start || normalized[period][action].allowed.start);
+                    normalized[period][action].allowed.end = normalizeTimeValue(source.allowed?.end || normalized[period][action].allowed.end);
+                    normalized[period][action].qualified.start = normalizeTimeValue(source.qualified?.start || normalized[period][action].qualified.start);
+                    normalized[period][action].qualified.end = normalizeTimeValue(source.qualified?.end || normalized[period][action].qualified.end);
+                });
+            });
+
+            return normalized;
+        }
+
+        function timeToMinutes(timeString) {
+            if (!timeString) return 0;
+            if (timeString === '24:00') return 24 * 60;
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return (hours * 60) + minutes;
+        }
+
+        function currentTimeToMinutes() {
+            const now = getCurrentTime();
+            return (now.hour * 60) + now.minute;
+        }
+
+        function isMinuteInRange(value, start, end, inclusiveEnd = true) {
+            const startMinutes = timeToMinutes(start);
+            const endMinutes = timeToMinutes(end);
+            if (startMinutes > endMinutes) return false;
+            return inclusiveEnd
+                ? value >= startMinutes && value <= endMinutes
+                : value >= startMinutes && value < endMinutes;
+        }
+
+        function isTimeStringInRange(timeString, range, inclusiveEnd = true) {
+            return isMinuteInRange(timeToMinutes(timeString), range.start, range.end, inclusiveEnd);
+        }
+
+        function getRule(period, action) {
+            return rulesConfig[period][action];
+        }
+
+        function formatRuleRange(range) {
+            return `${range.start} - ${range.end}`;
+        }
+
+        function buildQualifiedLabel(period) {
+            const checkInRange = getRule(period, 'checkIn').qualified;
+            const checkOutRange = getRule(period, 'checkOut').qualified;
+            return `合格标准: ${formatRuleRange(checkInRange)}上班, ${formatRuleRange(checkOutRange)}下班`;
+        }
+
+        function applyRulesToCheckinCard() {
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                document.getElementById(`${period}-checkin-window-label`).textContent = `上班时间: ${formatRuleRange(getRule(period, 'checkIn').allowed)}`;
+                document.getElementById(`${period}-checkout-window-label`).textContent = `下班时间: ${formatRuleRange(getRule(period, 'checkOut').allowed)}`;
+                document.getElementById(`${period}-qualified-label`).textContent = buildQualifiedLabel(period);
+            });
+        }
+
+        function recomputeCheckinStatusForDay(dayData) {
+            if (!dayData) return;
+
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                if (dayData[period].checkIn) {
+                    dayData[period].status.checkIn = isTimeStringInRange(dayData[period].checkIn, getRule(period, 'checkIn').qualified);
+                } else {
+                    dayData[period].status.checkIn = null;
+                }
+
+                if (dayData[period].checkOut) {
+                    dayData[period].status.checkOut = isTimeStringInRange(dayData[period].checkOut, getRule(period, 'checkOut').qualified);
+                } else {
+                    dayData[period].status.checkOut = null;
+                }
+            });
+        }
+
+        function recomputeAllCheckinStatuses() {
+            Object.values(checkinData).forEach(dayData => {
+                recomputeCheckinStatusForDay(dayData);
+            });
+        }
+
+        function renderRulesForm() {
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                ['checkIn', 'checkOut'].forEach(action => {
+                    const prefix = `rules-${period}-${action === 'checkIn' ? 'checkin' : 'checkout'}`;
+                    const rule = getRule(period, action);
+                    document.getElementById(`${prefix}-allowed-start`).value = rule.allowed.start;
+                    document.getElementById(`${prefix}-allowed-end`).value = rule.allowed.end === '24:00' ? '23:59' : rule.allowed.end;
+                    document.getElementById(`${prefix}-qualified-start`).value = rule.qualified.start;
+                    document.getElementById(`${prefix}-qualified-end`).value = rule.qualified.end === '24:00' ? '23:59' : rule.qualified.end;
+                });
+            });
+        }
+
+        function readRulesFromForm() {
+            const updated = createDefaultRulesConfig();
+
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                ['checkIn', 'checkOut'].forEach(action => {
+                    const prefix = `rules-${period}-${action === 'checkIn' ? 'checkin' : 'checkout'}`;
+                    updated[period][action].allowed.start = normalizeTimeValue(document.getElementById(`${prefix}-allowed-start`).value);
+                    updated[period][action].allowed.end = normalizeTimeValue(document.getElementById(`${prefix}-allowed-end`).value);
+                    updated[period][action].qualified.start = normalizeTimeValue(document.getElementById(`${prefix}-qualified-start`).value);
+                    updated[period][action].qualified.end = normalizeTimeValue(document.getElementById(`${prefix}-qualified-end`).value);
+                });
+            });
+
+            if (updated.evening.checkOut.allowed.end === '23:59') {
+                updated.evening.checkOut.allowed.end = '24:00';
+            }
+            if (updated.evening.checkOut.qualified.end === '23:59') {
+                updated.evening.checkOut.qualified.end = '24:00';
+            }
+
+            return updated;
+        }
+
+        function validateRulesConfig(config) {
+            for (const period of ['morning', 'afternoon', 'evening']) {
+                for (const action of ['checkIn', 'checkOut']) {
+                    const rule = config[period][action];
+                    const allowedStart = timeToMinutes(rule.allowed.start);
+                    const allowedEnd = timeToMinutes(rule.allowed.end);
+                    const qualifiedStart = timeToMinutes(rule.qualified.start);
+                    const qualifiedEnd = timeToMinutes(rule.qualified.end);
+
+                    if (allowedStart >= allowedEnd) {
+                        return `${PERIOD_LABELS[period]}${ACTION_LABELS[action]}的可打卡结束时间必须晚于开始时间。`;
+                    }
+
+                    if (qualifiedStart > qualifiedEnd) {
+                        return `${PERIOD_LABELS[period]}${ACTION_LABELS[action]}的合格结束时间不能早于开始时间。`;
+                    }
+
+                    if (qualifiedStart < allowedStart || qualifiedEnd > allowedEnd) {
+                        return `${PERIOD_LABELS[period]}${ACTION_LABELS[action]}的合格时间必须落在可打卡时间范围内。`;
+                    }
+                }
+            }
+
+            return null;
+        }
+        
+        function createDefaultCheckinDay() {
+            return {
+                morning: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                afternoon: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                evening: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                leave: false,
+                leaveReason: ''
+            };
+        }
+        
+        function ensureDateData(date) {
+            if (!checkinData[date]) {
+                checkinData[date] = createDefaultCheckinDay();
+            }
+            
+            if (!phoneResistData.records[date]) {
+                phoneResistData.records[date] = { count: 0, times: [] };
+            }
+            
+            if (!taskData[date]) {
+                taskData[date] = [];
+            }
+
+            if (!focusData[date]) {
+                focusData[date] = { totalMinutes: 0, sessions: [] };
+            }
+        }
+        
+        function loadAppState() {
+            const snapshot = safeParseJSON(localStorage.getItem(STORAGE_KEYS.appState), null)
+                || safeParseJSON(localStorage.getItem(STORAGE_KEYS.appStateBackup), null);
+            
+            if (snapshot && typeof snapshot === 'object') {
+                return snapshot;
+            }
+            
+            return {
+                checkinData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.checkinData), {}),
+                phoneResistData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.phoneResistData), { totalCount: 0, records: {} }),
+                taskData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.taskData), {}),
+                leaveData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.leaveData), []),
+                achievements: safeParseJSON(localStorage.getItem(STORAGE_KEYS.achievements), []),
+                currentTask: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentTask), null),
+                rulesConfig: safeParseJSON(localStorage.getItem(STORAGE_KEYS.rulesConfig), createDefaultRulesConfig()),
+                focusData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusData), {}),
+                currentFocusSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentFocusSession), null)
+            };
+        }
+        
+        // 初始化数据
+        function initData() {
+            const state = loadAppState();
+            
+            checkinData = state.checkinData || {};
+            phoneResistData = state.phoneResistData || { totalCount: 0, records: {} };
+            taskData = state.taskData || {};
+            leaveData = state.leaveData || [];
+            achievements = state.achievements || [];
+            currentTask = state.currentTask || null;
+            rulesConfig = normalizeRulesConfig(state.rulesConfig || createDefaultRulesConfig());
+            focusData = state.focusData || {};
+            currentFocusSession = state.currentFocusSession || null;
+            
+            // 确保phoneResistData格式正确
+            if (!phoneResistData.records) {
+                phoneResistData.records = {};
+            }
+            
+            // 初始化今日数据
+            const today = getTodayString();
+            ensureDateData(today);
+            
+            if (currentTask && (!currentTask.id || !currentTask.name || !currentTask.startTimestamp)) {
+                currentTask = null;
+            }
+            
+            if (currentTask && currentTask.date) {
+                ensureDateData(currentTask.date);
+            }
+
+            if (currentFocusSession && currentFocusSession.date) {
+                ensureDateData(currentFocusSession.date);
+            }
+            
+            recomputeAllCheckinStatuses();
+            
+            // 保存数据
+            saveData();
+        }
+        
+        // 保存数据到localStorage
+        function saveData() {
+            const snapshot = {
+                version: 2,
+                savedAt: new Date().toISOString(),
+                checkinData,
+                phoneResistData,
+                taskData,
+                leaveData,
+                achievements,
+                currentTask,
+                rulesConfig,
+                focusData,
+                currentFocusSession
+            };
+            
+            try {
+                const serialized = JSON.stringify(snapshot);
+                localStorage.setItem(STORAGE_KEYS.appState, serialized);
+                localStorage.setItem(STORAGE_KEYS.appStateBackup, serialized);
+                localStorage.setItem(STORAGE_KEYS.checkinData, JSON.stringify(checkinData));
+                localStorage.setItem(STORAGE_KEYS.phoneResistData, JSON.stringify(phoneResistData));
+                localStorage.setItem(STORAGE_KEYS.taskData, JSON.stringify(taskData));
+                localStorage.setItem(STORAGE_KEYS.leaveData, JSON.stringify(leaveData));
+                localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(achievements));
+                localStorage.setItem(STORAGE_KEYS.currentTask, JSON.stringify(currentTask));
+                localStorage.setItem(STORAGE_KEYS.rulesConfig, JSON.stringify(rulesConfig));
+                localStorage.setItem(STORAGE_KEYS.focusData, JSON.stringify(focusData));
+                localStorage.setItem(STORAGE_KEYS.currentFocusSession, JSON.stringify(currentFocusSession));
+            } catch (error) {
+                console.error('本地存储失败，请检查浏览器存储空间。', error);
+            }
+        }
+        
+        // 更新当前日期时间
+        function updateDateTime() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' };
+            document.getElementById('current-date-time').textContent = now.toLocaleDateString('zh-CN', options);
+            
+            // 更新打卡按钮状态
+            updateCheckinButtons();
+        }
+        
+        // 获取今日日期字符串 (YYYY-MM-DD)
+        function getTodayString() {
+            const today = new Date();
+            return formatLocalDate(today);
+        }
+        
+        // 获取当前时间字符串 (HH:MM)
+        function getCurrentTimeString() {
+            const now = new Date();
+            return now.toTimeString().slice(0, 5);
+        }
+        
+        // 获取当前时间对象 { hour, minute }
+        function getCurrentTime() {
+            const now = new Date();
+            return { hour: now.getHours(), minute: now.getMinutes() };
+        }
+        
+        // 初始化导航切换
+        function initNavigation() {
+            const sections = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'leave-section', 'stats-section', 'rules-section'];
+            const navButtons = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-leave', 'nav-stats', 'nav-rules'];
+            
+            navButtons.forEach((btnId, index) => {
+                document.getElementById(btnId).addEventListener('click', function() {
+                    // 隐藏所有section
+                    sections.forEach(sectionId => {
+                        document.getElementById(sectionId).classList.add('hidden');
+                    });
+                    
+                    // 显示当前section
+                    document.getElementById(sections[index]).classList.remove('hidden');
+                    
+                    // 更新导航按钮样式
+                    navButtons.forEach(id => {
+                        const btn = document.getElementById(id);
+                        btn.classList.remove('bg-primary', 'text-white');
+                        btn.classList.add('hover:bg-gray-100');
+                    });
+                    
+                    const currentBtn = document.getElementById(btnId);
+                    currentBtn.classList.add('bg-primary', 'text-white');
+                    currentBtn.classList.remove('hover:bg-gray-100');
+                    
+                    // 如果切换到统计页面，更新图表
+                    if (sections[index] === 'stats-section') {
+                        updateStatisticsCharts('week');
+                    } else if (sections[index] === 'rules-section') {
+                        renderRulesForm();
+                    }
+                });
+            });
+        }
+
+        function initRuleSettings() {
+            renderRulesForm();
+
+            document.getElementById('save-rules').addEventListener('click', function() {
+                const updatedRules = readRulesFromForm();
+                const validationError = validateRulesConfig(updatedRules);
+
+                if (validationError) {
+                    alert(validationError);
+                    return;
+                }
+
+                rulesConfig = normalizeRulesConfig(updatedRules);
+                recomputeAllCheckinStatuses();
+                applyRulesToCheckinCard();
+                renderRulesForm();
+                saveData();
+                updateCheckinButtons();
+                updateTodayCheckinTable();
+                updateTodayStatus();
+                updateSummaryStatistics();
+
+                if (!document.getElementById('stats-section').classList.contains('hidden')) {
+                    updateStatisticsCharts(getActiveStatsPeriod());
+                }
+
+                document.getElementById('rules-save-status').textContent = `规则已保存并立即生效：${new Date().toLocaleString('zh-CN')}`;
+            });
+
+            document.getElementById('reset-rules').addEventListener('click', function() {
+                rulesConfig = createDefaultRulesConfig();
+                recomputeAllCheckinStatuses();
+                applyRulesToCheckinCard();
+                renderRulesForm();
+                saveData();
+                updateCheckinButtons();
+                updateTodayCheckinTable();
+                updateTodayStatus();
+                updateSummaryStatistics();
+
+                if (!document.getElementById('stats-section').classList.contains('hidden')) {
+                    updateStatisticsCharts(getActiveStatsPeriod());
+                }
+
+                document.getElementById('rules-save-status').textContent = '已恢复默认规则并立即生效。';
+            });
+        }
+
+        function initFocusManagement() {
+            document.getElementById('start-focus-session').addEventListener('click', function() {
+                startFocusSession();
+            });
+
+            document.getElementById('stop-focus-session').addEventListener('click', function() {
+                stopFocusSession(false);
+            });
+
+            document.querySelectorAll('.focus-preset').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.getElementById('focus-duration-input').value = this.getAttribute('data-minutes');
+                });
+            });
+
+            updateTodayFocusSummary();
+            restoreFocusSession();
+        }
+
+        function requestFocusNotificationPermission() {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
+        }
+
+        function startFocusSession() {
+            const minutes = parseInt(document.getElementById('focus-duration-input').value, 10);
+            if (!Number.isFinite(minutes) || minutes <= 0) {
+                alert('请输入大于 0 的专注分钟数。');
+                return;
+            }
+
+            if (currentFocusSession) {
+                const shouldReplace = confirm('当前已有进行中的专注计时。是否结束当前计时并开始新的专注？');
+                if (!shouldReplace) return;
+                stopFocusSession(false);
+            }
+
+            requestFocusNotificationPermission();
+
+            const today = getTodayString();
+            ensureDateData(today);
+
+            currentFocusSession = {
+                id: `focus_${Date.now()}`,
+                date: today,
+                plannedMinutes: minutes,
+                startTimestamp: Date.now(),
+                endTimestamp: Date.now() + minutes * 60 * 1000
+            };
+
+            saveData();
+            startFocusTimer();
+            updateTodayStatus();
+        }
+
+        function restoreFocusSession() {
+            if (!currentFocusSession || !currentFocusSession.endTimestamp) {
+                updateFocusTimerDisplay();
+                return;
+            }
+
+            if (Date.now() >= currentFocusSession.endTimestamp) {
+                completeFocusSession();
+                return;
+            }
+
+            startFocusTimer();
+        }
+
+        function startFocusTimer() {
+            if (focusTimer) {
+                clearInterval(focusTimer);
+            }
+
+            document.getElementById('stop-focus-session').classList.remove('hidden');
+            updateFocusTimerDisplay();
+
+            focusTimer = setInterval(() => {
+                if (!currentFocusSession) return;
+
+                if (Date.now() >= currentFocusSession.endTimestamp) {
+                    completeFocusSession();
+                    return;
+                }
+
+                updateFocusTimerDisplay();
+            }, 1000);
+        }
+
+        function updateFocusTimerDisplay() {
+            const countdownDisplay = document.getElementById('focus-countdown-display');
+            const focusStatus = document.getElementById('focus-session-status');
+            const progressBar = document.getElementById('focus-progress-bar');
+            const stopButton = document.getElementById('stop-focus-session');
+
+            if (!currentFocusSession) {
+                countdownDisplay.textContent = '00:00';
+                focusStatus.textContent = '当前没有进行中的专注计时';
+                progressBar.style.width = '0%';
+                stopButton.classList.add('hidden');
+                return;
+            }
+
+            const remainingMs = Math.max(currentFocusSession.endTimestamp - Date.now(), 0);
+            const remainingSeconds = Math.ceil(remainingMs / 1000);
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            countdownDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const totalMs = currentFocusSession.plannedMinutes * 60 * 1000;
+            const elapsedMs = Math.min(Date.now() - currentFocusSession.startTimestamp, totalMs);
+            const progress = totalMs > 0 ? (elapsedMs / totalMs) * 100 : 0;
+            progressBar.style.width = `${Math.max(0, Math.min(progress, 100))}%`;
+            focusStatus.textContent = `进行中：本次目标 ${currentFocusSession.plannedMinutes} 分钟`;
+            stopButton.classList.remove('hidden');
+        }
+
+        function finalizeFocusSession(completed) {
+            if (!currentFocusSession) return;
+
+            const session = currentFocusSession;
+            const recordedDate = session.date || getTodayString();
+            ensureDateData(recordedDate);
+
+            const endTimestamp = completed ? session.endTimestamp : Date.now();
+            const elapsedMinutes = Math.max(1, Math.round((endTimestamp - session.startTimestamp) / (1000 * 60)));
+            const actualMinutes = completed ? session.plannedMinutes : Math.min(elapsedMinutes, session.plannedMinutes);
+
+            focusData[recordedDate].totalMinutes += actualMinutes;
+            focusData[recordedDate].sessions.push({
+                id: session.id,
+                plannedMinutes: session.plannedMinutes,
+                actualMinutes,
+                completed,
+                startTime: new Date(session.startTimestamp).toTimeString().slice(0, 5),
+                endTime: new Date(endTimestamp).toTimeString().slice(0, 5)
+            });
+
+            currentFocusSession = null;
+            if (focusTimer) {
+                clearInterval(focusTimer);
+                focusTimer = null;
+            }
+
+            saveData();
+            updateFocusTimerDisplay();
+            updateTodayFocusSummary();
+            updateTodayStatus();
+            updateSummaryStatistics();
+
+            if (!document.getElementById('stats-section').classList.contains('hidden')) {
+                updateStatisticsCharts(getActiveStatsPeriod());
+            }
+        }
+
+        function showFocusReminder() {
+            const message = '本次专注计时已完成。';
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('专注完成', { body: message });
+            }
+            alert(message);
+        }
+
+        function completeFocusSession() {
+            finalizeFocusSession(true);
+            showFocusReminder();
+        }
+
+        function stopFocusSession(isCompleted = false) {
+            finalizeFocusSession(isCompleted);
+        }
+
+        function updateTodayFocusSummary() {
+            const today = getTodayString();
+            ensureDateData(today);
+
+            const todayFocus = focusData[today];
+            document.getElementById('focus-today-total').textContent = todayFocus.totalMinutes;
+            document.getElementById('focus-today-count').textContent = todayFocus.sessions.length;
+
+            const container = document.getElementById('focus-today-records');
+            if (todayFocus.sessions.length === 0) {
+                container.innerHTML = '<div class="text-gray-500">暂无专注记录</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            [...todayFocus.sessions].reverse().forEach(session => {
+                const row = document.createElement('div');
+                row.className = 'bg-white rounded-lg p-3 flex items-center justify-between';
+                row.innerHTML = `
+                    <div>
+                        <div class="font-medium text-gray-800">${session.startTime} - ${session.endTime}</div>
+                        <div class="text-xs text-gray-500">${session.completed ? '已完成' : '提前结束'}，计划 ${session.plannedMinutes} 分钟</div>
+                    </div>
+                    <div class="text-primary font-semibold">${session.actualMinutes} 分钟</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        // 初始化打卡功能
+        function initCheckin() {
+            // 上午打卡
+            document.getElementById('morning-checkin').addEventListener('click', function() {
+                checkIn('morning');
+            });
+            
+            document.getElementById('morning-checkout').addEventListener('click', function() {
+                checkOut('morning');
+            });
+            
+            // 下午打卡
+            document.getElementById('afternoon-checkin').addEventListener('click', function() {
+                checkIn('afternoon');
+            });
+            
+            document.getElementById('afternoon-checkout').addEventListener('click', function() {
+                checkOut('afternoon');
+            });
+            
+            // 晚上打卡
+            document.getElementById('evening-checkin').addEventListener('click', function() {
+                checkIn('evening');
+            });
+            
+            document.getElementById('evening-checkout').addEventListener('click', function() {
+                checkOut('evening');
+            });
+            
+            // 更新打卡按钮状态
+            updateCheckinButtons();
+            
+            // 更新今日打卡记录表格
+            updateTodayCheckinTable();
+        }
+        
+        // 更新打卡按钮状态
+        function updateCheckinButtons() {
+            const today = getTodayString();
+            const currentMinutes = currentTimeToMinutes();
+            
+            // 检查是否请假
+            const isLeave = checkinData[today] && checkinData[today].leave;
+            if (isLeave) {
+                // 如果请假，禁用所有打卡按钮
+                ['morning', 'afternoon', 'evening'].forEach(period => {
+                    document.getElementById(`${period}-checkin`).disabled = true;
+                    document.getElementById(`${period}-checkout`).disabled = true;
+                    document.getElementById(`${period}-checkin`).classList.add('bg-gray-200', 'text-gray-500');
+                    document.getElementById(`${period}-checkin`).classList.remove('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                    document.getElementById(`${period}-checkout`).classList.add('bg-gray-200', 'text-gray-500');
+                    document.getElementById(`${period}-checkout`).classList.remove('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                });
+                return;
+            }
+            
+            // 上午打卡按钮状态
+            const morningCheckin = checkinData[today].morning.checkIn;
+            const morningCheckout = checkinData[today].morning.checkOut;
+            
+            document.getElementById('morning-checkin').disabled = morningCheckin !== null || !isMinuteInRange(currentMinutes, getRule('morning', 'checkIn').allowed.start, getRule('morning', 'checkIn').allowed.end, false);
+            document.getElementById('morning-checkout').disabled = morningCheckout !== null || morningCheckin === null || !isMinuteInRange(currentMinutes, getRule('morning', 'checkOut').allowed.start, getRule('morning', 'checkOut').allowed.end, false);
+            
+            // 下午打卡按钮状态
+            const afternoonCheckin = checkinData[today].afternoon.checkIn;
+            const afternoonCheckout = checkinData[today].afternoon.checkOut;
+            
+            document.getElementById('afternoon-checkin').disabled = afternoonCheckin !== null || !isMinuteInRange(currentMinutes, getRule('afternoon', 'checkIn').allowed.start, getRule('afternoon', 'checkIn').allowed.end, false);
+            document.getElementById('afternoon-checkout').disabled = afternoonCheckout !== null || afternoonCheckin === null || !isMinuteInRange(currentMinutes, getRule('afternoon', 'checkOut').allowed.start, getRule('afternoon', 'checkOut').allowed.end, false);
+            
+            // 晚上打卡按钮状态
+            const eveningCheckin = checkinData[today].evening.checkIn;
+            const eveningCheckout = checkinData[today].evening.checkOut;
+            
+            document.getElementById('evening-checkin').disabled = eveningCheckin !== null || !isMinuteInRange(currentMinutes, getRule('evening', 'checkIn').allowed.start, getRule('evening', 'checkIn').allowed.end, false);
+            document.getElementById('evening-checkout').disabled = eveningCheckout !== null || eveningCheckin === null || !isMinuteInRange(currentMinutes, getRule('evening', 'checkOut').allowed.start, getRule('evening', 'checkOut').allowed.end, false);
+            
+            // 更新按钮样式
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                const checkinBtn = document.getElementById(`${period}-checkin`);
+                const checkoutBtn = document.getElementById(`${period}-checkout`);
+                
+                // 上班按钮样式
+                if (checkinBtn.disabled) {
+                    checkinBtn.classList.add('bg-gray-200', 'text-gray-500');
+                    checkinBtn.classList.remove('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                } else {
+                    checkinBtn.classList.add('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                    checkinBtn.classList.remove('bg-gray-200', 'text-gray-500');
+                }
+                
+                // 下班按钮样式
+                if (checkoutBtn.disabled) {
+                    checkoutBtn.classList.add('bg-gray-200', 'text-gray-500');
+                    checkoutBtn.classList.remove('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                } else {
+                    checkoutBtn.classList.add('bg-primary', 'hover:bg-primary/90', 'text-white', 'btn-shadow');
+                    checkoutBtn.classList.remove('bg-gray-200', 'text-gray-500');
+                }
+            });
+            
+            // 更新打卡时间显示
+            updateCheckinTimeDisplay();
+        }
+        
+        // 上班打卡
+        function checkIn(period) {
+            const today = getTodayString();
+            const currentTime = getCurrentTimeString();
+            
+            // 记录打卡时间
+            checkinData[today][period].checkIn = currentTime;
+            
+            // 判断是否在规定时间内打卡
+            const status = isTimeStringInRange(currentTime, getRule(period, 'checkIn').qualified);
+            
+            checkinData[today][period].status.checkIn = status;
+            
+            // 保存数据
+            saveData();
+            
+            // 更新按钮状态
+            updateCheckinButtons();
+            
+            // 更新今日打卡记录表格
+            updateTodayCheckinTable();
+            
+            // 更新今日状态
+            updateTodayStatus();
+            
+            // 检查成就
+            checkAchievements();
+        }
+        
+        // 下班打卡
+        function checkOut(period) {
+            const today = getTodayString();
+            const currentTime = getCurrentTimeString();
+            
+            // 记录打卡时间
+            checkinData[today][period].checkOut = currentTime;
+            
+            // 判断是否在规定时间内打卡
+            const status = isTimeStringInRange(currentTime, getRule(period, 'checkOut').qualified);
+            
+            checkinData[today][period].status.checkOut = status;
+            
+            // 保存数据
+            saveData();
+            
+            // 更新按钮状态
+            updateCheckinButtons();
+            
+            // 更新今日打卡记录表格
+            updateTodayCheckinTable();
+            
+            // 更新今日状态
+            updateTodayStatus();
+            
+            // 检查成就
+            checkAchievements();
+        }
+        
+        // 更新打卡时间显示
+        function updateCheckinTimeDisplay() {
+            const today = getTodayString();
+            
+            // 上午打卡时间
+            document.getElementById('morning-checkin-time').textContent = `上班: ${checkinData[today].morning.checkIn || '-'}`;
+            document.getElementById('morning-checkout-time').textContent = `下班: ${checkinData[today].morning.checkOut || '-'}`;
+            
+            // 下午打卡时间
+            document.getElementById('afternoon-checkin-time').textContent = `上班: ${checkinData[today].afternoon.checkIn || '-'}`;
+            document.getElementById('afternoon-checkout-time').textContent = `下班: ${checkinData[today].afternoon.checkOut || '-'}`;
+            
+            // 晚上打卡时间
+            document.getElementById('evening-checkin-time').textContent = `上班: ${checkinData[today].evening.checkIn || '-'}`;
+            document.getElementById('evening-checkout-time').textContent = `下班: ${checkinData[today].evening.checkOut || '-'}`;
+        }
+        
+        // 更新今日打卡记录表格
+        function updateTodayCheckinTable() {
+            const today = getTodayString();
+            
+            // 上午打卡记录
+            document.getElementById('table-morning-checkin').textContent = checkinData[today].morning.checkIn || '-';
+            document.getElementById('table-morning-checkout').textContent = checkinData[today].morning.checkOut || '-';
+            
+            const morningCheckinStatus = document.getElementById('table-morning-checkin-status');
+            if (checkinData[today].morning.checkIn === null) {
+                morningCheckinStatus.textContent = '-';
+                morningCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                morningCheckinStatus.textContent = checkinData[today].morning.status.checkIn ? '合格' : '不合格';
+                morningCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].morning.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
+            }
+            
+            const morningCheckoutStatus = document.getElementById('table-morning-checkout-status');
+            if (checkinData[today].morning.checkOut === null) {
+                morningCheckoutStatus.textContent = '-';
+                morningCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                morningCheckoutStatus.textContent = checkinData[today].morning.status.checkOut ? '合格' : '不合格';
+                morningCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].morning.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
+            }
+            
+            // 下午打卡记录
+            document.getElementById('table-afternoon-checkin').textContent = checkinData[today].afternoon.checkIn || '-';
+            document.getElementById('table-afternoon-checkout').textContent = checkinData[today].afternoon.checkOut || '-';
+            
+            const afternoonCheckinStatus = document.getElementById('table-afternoon-checkin-status');
+            if (checkinData[today].afternoon.checkIn === null) {
+                afternoonCheckinStatus.textContent = '-';
+                afternoonCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                afternoonCheckinStatus.textContent = checkinData[today].afternoon.status.checkIn ? '合格' : '不合格';
+                afternoonCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].afternoon.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
+            }
+            
+            const afternoonCheckoutStatus = document.getElementById('table-afternoon-checkout-status');
+            if (checkinData[today].afternoon.checkOut === null) {
+                afternoonCheckoutStatus.textContent = '-';
+                afternoonCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                afternoonCheckoutStatus.textContent = checkinData[today].afternoon.status.checkOut ? '合格' : '不合格';
+                afternoonCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].afternoon.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
+            }
+            
+            // 晚上打卡记录
+            document.getElementById('table-evening-checkin').textContent = checkinData[today].evening.checkIn || '-';
+            document.getElementById('table-evening-checkout').textContent = checkinData[today].evening.checkOut || '-';
+            
+            const eveningCheckinStatus = document.getElementById('table-evening-checkin-status');
+            if (checkinData[today].evening.checkIn === null) {
+                eveningCheckinStatus.textContent = '-';
+                eveningCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                eveningCheckinStatus.textContent = checkinData[today].evening.status.checkIn ? '合格' : '不合格';
+                eveningCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].evening.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
+            }
+            
+            const eveningCheckoutStatus = document.getElementById('table-evening-checkout-status');
+            if (checkinData[today].evening.checkOut === null) {
+                eveningCheckoutStatus.textContent = '-';
+                eveningCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
+            } else {
+                eveningCheckoutStatus.textContent = checkinData[today].evening.status.checkOut ? '合格' : '不合格';
+                eveningCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].evening.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
+            }
+        }
+        
+        // 初始化手机克制功能
+        function initPhoneResist() {
+            // 更新总次数显示
+            document.getElementById('phone-resist-count').textContent = phoneResistData.totalCount;
+            
+            // 更新今日次数显示
+            const today = getTodayString();
+            document.getElementById('today-phone-resist-count').textContent = phoneResistData.records[today].count;
+            
+            // 更新今日记录时间
+            updateTodayPhoneResistTimes();
+            
+            // 更新成就列表
+            updateAchievementsList();
+            
+            // 添加忍住按钮事件
+            document.getElementById('add-phone-resist').addEventListener('click', function() {
+                addPhoneResist();
+            });
+        }
+        
+        // 添加手机克制记录
+        function addPhoneResist() {
+            const today = getTodayString();
+            const currentTime = getCurrentTimeString();
+            
+            // 更新总次数
+            phoneResistData.totalCount++;
+            
+            // 更新今日次数
+            if (!phoneResistData.records[today]) {
+                phoneResistData.records[today] = { count: 0, times: [] };
+            }
+            phoneResistData.records[today].count++;
+            phoneResistData.records[today].times.push(currentTime);
+            
+            // 保存数据
+            saveData();
+            
+            // 更新显示
+            document.getElementById('phone-resist-count').textContent = phoneResistData.totalCount;
+            document.getElementById('today-phone-resist-count').textContent = phoneResistData.records[today].count;
+            
+            // 更新今日记录时间
+            updateTodayPhoneResistTimes();
+            
+            // 更新成就列表
+            updateAchievementsList();
+            
+            // 检查成就
+            checkAchievements();
+        }
+        
+        // 更新今日手机克制记录时间
+        function updateTodayPhoneResistTimes() {
+            const today = getTodayString();
+            const times = phoneResistData.records[today].times;
+            
+            if (times.length === 0) {
+                document.getElementById('today-phone-resist-times').textContent = '暂无记录';
+                return;
+            }
+            
+            let timesText = '记录时间: ';
+            timesText += times.join(', ');
+            
+            document.getElementById('today-phone-resist-times').textContent = timesText;
+        }
+        
+        // 更新成就列表
+        function updateAchievementsList() {
+            const achievementsList = document.getElementById('achievements-list');
+            achievementsList.innerHTML = '';
+            
+            achievementList.forEach(achievement => {
+                // 只显示手机克制相关成就
+                if (achievement.type && achievement.type !== 'phone') return;
+                
+                const isAchieved = achievements.includes(achievement.id);
+                const statusClass = isAchieved ? 'bg-success' : 'bg-gray-300';
+                const iconClass = isAchieved ? 'fa-check' : 'fa-lock';
+                const textClass = isAchieved ? '' : 'text-gray-500';
+                
+                const achievementItem = document.createElement('div');
+                achievementItem.className = 'flex items-center';
+                achievementItem.innerHTML = `
+                    <div class="w-8 h-8 rounded-full ${statusClass} flex items-center justify-center text-white mr-2">
+                        <i class="fa ${iconClass}"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium ${textClass}">${achievement.name}</div>
+                        <div class="text-xs ${textClass}">${achievement.description}</div>
+                    </div>
+                `;
+                
+                achievementsList.appendChild(achievementItem);
+            });
+        }
+        
+        // 显示成就弹窗
+        function showAchievementPopup(achievement) {
+            const popup = document.getElementById('achievement-popup');
+            document.getElementById('popup-achievement-title').textContent = achievement.name;
+            document.getElementById('popup-achievement-desc').textContent = achievement.description;
+            
+            popup.classList.remove('hidden');
+            
+            // 5秒后隐藏弹窗
+            setTimeout(() => {
+                popup.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // 检查成就
+        function checkAchievements() {
+            let hasNewAchievement = false;
+            
+            // 检查手机克制成就
+            achievementList.forEach(achievement => {
+                if (achievements.includes(achievement.id)) return;
+                
+                let achieved = false;
+                
+                if (achievement.type === 'phone' || !achievement.type) {
+                    achieved = phoneResistData.totalCount >= achievement.requirement;
+                } else if (achievement.type === 'checkin') {
+                    // 计算总打卡天数
+                    const checkinDays = Object.keys(checkinData).filter(date => {
+                        const dayData = checkinData[date];
+                        return dayData.morning.checkIn || dayData.afternoon.checkIn || dayData.evening.checkIn;
+                    }).length;
+                    achieved = checkinDays >= achievement.requirement;
+                } else if (achievement.type === 'streak') {
+                    // 计算连续打卡天数
+                    const streak = calculateCheckinStreak();
+                    achieved = streak >= achievement.requirement;
+                } else if (achievement.type === 'task') {
+                    // 计算总任务数
+                    const totalTasks = Object.values(taskData).reduce((total, dayTasks) => {
+                        return total + dayTasks.length;
+                    }, 0);
+                    achieved = totalTasks >= achievement.requirement;
+                } else if (achievement.type === 'task_hour') {
+                    // 计算总任务时间(小时)
+                    const totalHours = calculateTotalTaskHours();
+                    achieved = totalHours >= achievement.requirement;
+                }
+                
+                if (achieved) {
+                    achievements.push(achievement.id);
+                    showAchievementPopup(achievement);
+                    hasNewAchievement = true;
+                }
+            });
+            
+            if (hasNewAchievement) {
+                saveData();
+                updateAchievementsList();
+                updateTodayStatus();
+            }
+        }
+        
+        // 计算连续打卡天数
+        function calculateCheckinStreak() {
+            const dates = Object.keys(checkinData).sort().reverse();
+            if (dates.length === 0) return 0;
+            
+            let streak = 0;
+            const today = new Date();
+            
+            for (let i = 0; i < dates.length; i++) {
+                const checkDate = parseStoredDate(dates[i]);
+                const expectedDate = new Date(today);
+                expectedDate.setDate(today.getDate() - i);
+                
+                // 检查日期是否连续
+                if (!checkDate || checkDate.toDateString() !== expectedDate.toDateString()) {
+                    break;
+                }
+                
+                const dayData = checkinData[dates[i]];
+                if (dayData.morning.checkIn || dayData.afternoon.checkIn || dayData.evening.checkIn) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+            
+            return streak;
+        }
+        
+        // 计算总任务时间(小时)
+        function calculateTotalTaskHours() {
+            let totalMinutes = 0;
+            
+            Object.values(taskData).forEach(dayTasks => {
+                dayTasks.forEach(task => {
+                    if (task.duration) {
+                        totalMinutes += task.duration;
+                    }
+                });
+            });
+            
+            return Math.floor(totalMinutes / 60);
+        }
+        
+        // 初始化任务管理功能
+        function initTaskManagement() {
+            // 开始任务按钮事件
+            document.getElementById('start-task').addEventListener('click', function() {
+                startTask();
+            });
+            
+            // 结束任务按钮事件
+            document.getElementById('end-task').addEventListener('click', function() {
+                endTask();
+            });
+            
+            // 更新今日任务列表
+            updateTodayTasksList();
+            
+            // 更新日程表
+            updateSchedule();
+            
+            // 恢复进行中的任务
+            restoreCurrentTask();
+        }
+        
+        function restoreCurrentTask() {
+            if (!currentTask) return;
+            
+            document.getElementById('current-task-name').textContent = currentTask.name;
+            document.getElementById('current-task-container').classList.remove('hidden');
+            startTaskTimer();
+        }
+        
+        // 开始任务
+        function startTask() {
+            const taskName = document.getElementById('task-name').value.trim();
+            
+            if (!taskName) {
+                alert('请输入任务名称');
+                return;
+            }
+            
+            // 如果有正在进行的任务，先结束
+            if (currentTask) {
+                endTask();
+            }
+            
+            // 创建新任务
+            const today = getTodayString();
+            const taskId = 'task_' + Date.now();
+            const startTime = getCurrentTimeString();
+            
+            currentTask = {
+                id: taskId,
+                name: taskName,
+                date: today,
+                startTime: startTime,
+                startTimestamp: Date.now()
+            };
+            
+            // 显示当前任务
+            document.getElementById('current-task-name').textContent = taskName;
+            document.getElementById('current-task-time').textContent = '已进行: 00:00:00';
+            document.getElementById('current-task-container').classList.remove('hidden');
+            
+            // 清空输入框
+            document.getElementById('task-name').value = '';
+            
+            // 启动计时器
+            startTaskTimer();
+            
+            // 立即持久化进行中任务
+            saveData();
+            
+            // 更新今日状态
+            updateTodayStatus();
+        }
+        
+        // 启动任务计时器
+        function startTaskTimer() {
+            if (taskTimer) {
+                clearInterval(taskTimer);
+            }
+            
+            taskTimer = setInterval(() => {
+                if (!currentTask) return;
+                
+                const elapsedTime = Date.now() - currentTask.startTimestamp;
+                const hours = Math.floor(elapsedTime / (1000 * 60 * 60));
+                const minutes = Math.floor((elapsedTime % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((elapsedTime % (1000 * 60)) / 1000);
+                
+                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                document.getElementById('current-task-time').textContent = `已进行: ${timeString}`;
+                
+                // 更新进度条 (假设任务最长10小时)
+                const progress = Math.min((elapsedTime / (1000 * 60 * 60 * 10)) * 100, 100);
+                document.getElementById('task-progress-bar').style.width = `${progress}%`;
+            }, 1000);
+        }
+        
+        // 结束任务
+        function endTask() {
+            if (!currentTask) return;
+            
+            // 停止计时器
+            clearInterval(taskTimer);
+            taskTimer = null;
+            
+            // 计算任务持续时间
+            const endTime = getCurrentTimeString();
+            const duration = Math.floor((Date.now() - currentTask.startTimestamp) / (1000 * 60)); // 分钟
+            
+            // 保存任务数据
+            const today = currentTask.date || getTodayString();
+            const task = {
+                id: currentTask.id,
+                name: currentTask.name,
+                startTime: currentTask.startTime,
+                endTime: endTime,
+                duration: duration,
+                completed: true
+            };
+            
+            if (!taskData[today]) {
+                taskData[today] = [];
+            }
+            
+            taskData[today].push(task);
+            
+            // 重置当前任务
+            currentTask = null;
+            
+            // 隐藏当前任务容器
+            document.getElementById('current-task-container').classList.add('hidden');
+            document.getElementById('task-progress-bar').style.width = '0%';
+            
+            // 保存数据
+            saveData();
+            
+            // 更新今日任务列表
+            updateTodayTasksList();
+            
+            // 更新日程表
+            updateSchedule();
+            
+            // 更新今日状态
+            updateTodayStatus();
+            
+            // 检查成就
+            checkAchievements();
+        }
+        
+        // 更新今日任务列表
+        function updateTodayTasksList() {
+            const today = getTodayString();
+            const tasks = taskData[today] || [];
+            const tableBody = document.getElementById('today-tasks-table');
+            
+            if (tasks.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" class="py-4 px-4 text-center text-gray-500">暂无任务记录</td></tr>';
+                return;
+            }
+            
+            tableBody.innerHTML = '';
+            
+            tasks.forEach(task => {
+                const row = document.createElement('tr');
+                
+                // 格式化持续时间
+                const hours = Math.floor(task.duration / 60);
+                const minutes = task.duration % 60;
+                const durationString = hours > 0 ? `${hours}小时${minutes}分钟` : `${minutes}分钟`;
+                
+                row.innerHTML = `
+                    <td class="py-2 px-4 border-b border-gray-200">${task.name}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">${task.startTime}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">${task.endTime}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">${durationString}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">
+                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">已完成</span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 更新日程表
+        function updateSchedule() {
+            const today = getTodayString();
+            const tasks = taskData[today] || [];
+            const scheduleContent = document.getElementById('schedule-content');
+            
+            if (tasks.length === 0) {
+                scheduleContent.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-500">暂无日程安排</div>';
+                return;
+            }
+            
+            scheduleContent.innerHTML = '';
+            
+            // 计算时间块高度 (总高度 / 18小时 = 每小时高度)
+            const totalHeight = 384; // 96 * 4 = 384px
+            const hourHeight = totalHeight / 18; // 6:00 - 24:00 共18小时
+            
+            tasks.forEach(task => {
+                // 解析开始时间和结束时间
+                const [startHour, startMinute] = task.startTime.split(':').map(Number);
+                const [endHour, endMinute] = task.endTime.split(':').map(Number);
+                
+                // 计算顶部位置 (相对于6:00的偏移)
+                const startOffset = (startHour - 6) + (startMinute / 60);
+                const top = startOffset * hourHeight;
+                
+                // 计算高度
+                const durationHours = (endHour - startHour) + ((endMinute - startMinute) / 60);
+                const height = durationHours * hourHeight;
+                
+                // 创建任务块
+                const taskBlock = document.createElement('div');
+                taskBlock.className = 'absolute left-0 right-0 bg-primary/80 text-white p-2 rounded-md shadow-md cursor-pointer hover:bg-primary transition-colors';
+                taskBlock.style.top = `${top}px`;
+                taskBlock.style.height = `${height}px`;
+                taskBlock.style.minHeight = '30px'; // 最小高度
+                
+                taskBlock.innerHTML = `
+                    <div class="font-medium text-sm truncate">${task.name}</div>
+                    <div class="text-xs opacity-80">${task.startTime} - ${task.endTime}</div>
+                `;
+                
+                scheduleContent.appendChild(taskBlock);
+            });
+        }
+        
+        // 初始化请假功能
+        function initLeaveManagement() {
+            // 设置默认请假日期为今天
+            const today = getTodayString();
+            document.getElementById('leave-date').value = today;
+            
+            // 添加请假按钮事件
+            document.getElementById('add-leave').addEventListener('click', function() {
+                addLeave();
+            });
+            
+            // 更新请假记录列表
+            updateLeaveRecordsList();
+        }
+        
+        // 添加请假记录
+        function addLeave() {
+            const date = document.getElementById('leave-date').value;
+            const reason = document.getElementById('leave-reason').value.trim();
+            
+            if (!date) {
+                alert('请选择请假日期');
+                return;
+            }
+            
+            if (!reason) {
+                alert('请输入请假理由');
+                return;
+            }
+            
+            // 检查是否已有该日期的请假记录
+            const existingLeaveIndex = leaveData.findIndex(leave => leave.date === date);
+            
+            if (existingLeaveIndex !== -1) {
+                // 更新现有记录
+                leaveData[existingLeaveIndex].reason = reason;
+            } else {
+                // 添加新记录
+                leaveData.push({ date, reason });
+            }
+            
+            // 更新打卡数据
+            if (!checkinData[date]) {
+                checkinData[date] = {
+                    morning: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                    afternoon: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                    evening: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                    leave: false,
+                    leaveReason: ''
+                };
+            }
+            
+            checkinData[date].leave = true;
+            checkinData[date].leaveReason = reason;
+            
+            // 保存数据
+            saveData();
+            
+            // 清空输入框
+            document.getElementById('leave-reason').value = '';
+            
+            // 更新请假记录列表
+            updateLeaveRecordsList();
+            
+            // 如果是今天的请假，更新打卡按钮状态
+            if (date === getTodayString()) {
+                updateCheckinButtons();
+                updateTodayStatus();
+            }
+        }
+        
+        // 更新请假记录列表
+        function updateLeaveRecordsList() {
+            const tableBody = document.getElementById('leave-records-table');
+            
+            if (leaveData.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="3" class="py-4 px-4 text-center text-gray-500">暂无请假记录</td></tr>';
+                return;
+            }
+            
+            // 按日期排序 (最新的在前)
+            const sortedLeaveData = [...leaveData].sort((a, b) => parseStoredDate(b.date) - parseStoredDate(a.date));
+            
+            tableBody.innerHTML = '';
+            
+            sortedLeaveData.forEach(leave => {
+                const row = document.createElement('tr');
+                
+                // 格式化日期
+                const date = parseStoredDate(leave.date);
+                const formattedDate = date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+                
+                row.innerHTML = `
+                    <td class="py-2 px-4 border-b border-gray-200">${formattedDate}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">${leave.reason}</td>
+                    <td class="py-2 px-4 border-b border-gray-200">
+                        <button class="delete-leave px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs" data-date="${leave.date}">删除</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // 添加删除按钮事件
+            document.querySelectorAll('.delete-leave').forEach(button => {
+                button.addEventListener('click', function() {
+                    const date = this.getAttribute('data-date');
+                    deleteLeave(date);
+                });
+            });
+        }
+        
+        // 删除请假记录
+        function deleteLeave(date) {
+            if (confirm('确定要删除这条请假记录吗？')) {
+                // 从请假数据中删除
+                leaveData = leaveData.filter(leave => leave.date !== date);
+                
+                // 更新打卡数据
+                if (checkinData[date]) {
+                    checkinData[date].leave = false;
+                    checkinData[date].leaveReason = '';
+                }
+                
+                // 保存数据
+                saveData();
+                
+                // 更新请假记录列表
+                updateLeaveRecordsList();
+                
+                // 如果是今天的请假，更新打卡按钮状态
+                if (date === getTodayString()) {
+                    updateCheckinButtons();
+                    updateTodayStatus();
+                }
+            }
+        }
+        
+        // 初始化统计分析功能
+        function initStatistics() {
+            // 统计周期按钮事件
+            document.querySelectorAll('.stats-period-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const period = this.getAttribute('data-period');
+                    
+                    // 更新按钮样式
+                    document.querySelectorAll('.stats-period-btn').forEach(btn => {
+                        btn.classList.remove('bg-primary', 'text-white');
+                        btn.classList.add('bg-gray-200', 'text-gray-700');
+                    });
+                    
+                    this.classList.add('bg-primary', 'text-white');
+                    this.classList.remove('bg-gray-200', 'text-gray-700');
+                    
+                    // 更新图表
+                    updateStatisticsCharts(period);
+                });
+            });
+            
+            // 更新综合统计
+            updateSummaryStatistics();
+        }
+
+        function getActiveStatsPeriod() {
+            const activeButton = document.querySelector('.stats-period-btn.bg-primary');
+            return activeButton ? activeButton.getAttribute('data-period') : 'week';
+        }
+        
+        // 更新统计图表
+        function updateStatisticsCharts(period) {
+            // 根据周期获取日期范围
+            const { startDate, endDate, labels } = getDateRange(period);
+            
+            // 准备数据
+            const checkinRateData = prepareCheckinRateData(startDate, endDate, labels);
+            const checkinPeriodData = prepareCheckinPeriodData(startDate, endDate);
+            const taskDurationData = prepareTaskDurationData(startDate, endDate, labels);
+            const phoneResistData = preparePhoneResistData(startDate, endDate, labels);
+            const focusDurationData = prepareFocusDurationData(startDate, endDate, labels);
+            
+            // 更新图表
+            updateCheckinRateChart(labels, checkinRateData);
+            updateCheckinPeriodChart(checkinPeriodData);
+            updateTaskDurationChart(labels, taskDurationData);
+            updatePhoneResistChart(labels, phoneResistData);
+            updateFocusDurationChart(labels, focusDurationData);
+        }
+        
+        // 获取日期范围
+        function getDateRange(period) {
+            const endDate = new Date();
+            const startDate = new Date();
+            let labels = [];
+            
+            if (period === 'week') {
+                startDate.setDate(endDate.getDate() - 6); // 最近7天
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    labels.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+                }
+            } else if (period === 'month') {
+                startDate.setDate(endDate.getDate() - 29); // 最近30天
+                for (let i = 0; i < 30; i += 3) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    labels.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+                }
+            } else if (period === 'year') {
+                startDate.setMonth(endDate.getMonth() - 11); // 最近12个月
+                for (let i = 0; i < 12; i++) {
+                    const date = new Date(startDate);
+                    date.setMonth(startDate.getMonth() + i);
+                    labels.push(date.toLocaleDateString('zh-CN', { month: 'short' }));
+                }
+            }
+            
+            return { startDate, endDate, labels };
+        }
+        
+        // 准备打卡率数据
+        function prepareCheckinRateData(startDate, endDate, labels) {
+            const data = [];
+            const dateFormat = { year: 'numeric', month: '2-digit', day: '2-digit' };
+            
+            for (let i = 0; i < labels.length; i++) {
+                const date = new Date(startDate);
+                if (labels.length === 7) { // 周
+                    date.setDate(startDate.getDate() + i);
+                } else if (labels.length === 10) { // 月
+                    date.setDate(startDate.getDate() + i * 3);
+                } else if (labels.length === 12) { // 年
+                    date.setMonth(startDate.getMonth() + i);
+                }
+                
+                    const dateString = formatLocalDate(date);
+                const dayData = checkinData[dateString];
+                
+                if (!dayData || dayData.leave) {
+                    data.push(null); // 请假或无数据
+                } else {
+                    // 计算打卡率 (合格次数 / 应打卡次数)
+                    let totalChecks = 0;
+                    let qualifiedChecks = 0;
+                    
+                    ['morning', 'afternoon', 'evening'].forEach(period => {
+                        if (dayData[period].checkIn !== null) {
+                            totalChecks++;
+                            if (dayData[period].status.checkIn) qualifiedChecks++;
+                        }
+                        
+                        if (dayData[period].checkOut !== null) {
+                            totalChecks++;
+                            if (dayData[period].status.checkOut) qualifiedChecks++;
+                        }
+                    });
+                    
+                    const rate = totalChecks > 0 ? (qualifiedChecks / totalChecks) * 100 : 0;
+                    data.push(rate);
+                }
+            }
+            
+            return data;
+        }
+        
+        // 准备时段打卡数据
+        function prepareCheckinPeriodData(startDate, endDate) {
+            const morning = { checkIn: 0, checkOut: 0, qualifiedCheckIn: 0, qualifiedCheckOut: 0 };
+            const afternoon = { checkIn: 0, checkOut: 0, qualifiedCheckIn: 0, qualifiedCheckOut: 0 };
+            const evening = { checkIn: 0, checkOut: 0, qualifiedCheckIn: 0, qualifiedCheckOut: 0 };
+            
+            // 遍历日期范围
+            const currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                const dateString = formatLocalDate(currentDate);
+                const dayData = checkinData[dateString];
+                
+                if (dayData && !dayData.leave) {
+                    // 上午
+                    if (dayData.morning.checkIn) {
+                        morning.checkIn++;
+                        if (dayData.morning.status.checkIn) morning.qualifiedCheckIn++;
+                    }
+                    if (dayData.morning.checkOut) {
+                        morning.checkOut++;
+                        if (dayData.morning.status.checkOut) morning.qualifiedCheckOut++;
+                    }
+                    
+                    // 下午
+                    if (dayData.afternoon.checkIn) {
+                        afternoon.checkIn++;
+                        if (dayData.afternoon.status.checkIn) afternoon.qualifiedCheckIn++;
+                    }
+                    if (dayData.afternoon.checkOut) {
+                        afternoon.checkOut++;
+                        if (dayData.afternoon.status.checkOut) afternoon.qualifiedCheckOut++;
+                    }
+                    
+                    // 晚上
+                    if (dayData.evening.checkIn) {
+                        evening.checkIn++;
+                        if (dayData.evening.status.checkIn) evening.qualifiedCheckIn++;
+                    }
+                    if (dayData.evening.checkOut) {
+                        evening.checkOut++;
+                        if (dayData.evening.status.checkOut) evening.qualifiedCheckOut++;
+                    }
+                }
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            return { morning, afternoon, evening };
+        }
+        
+        // 准备任务时长数据
+        function prepareTaskDurationData(startDate, endDate, labels) {
+            const data = [];
+            
+            for (let i = 0; i < labels.length; i++) {
+                const date = new Date(startDate);
+                if (labels.length === 7) { // 周
+                    date.setDate(startDate.getDate() + i);
+                } else if (labels.length === 10) { // 月
+                    date.setDate(startDate.getDate() + i * 3);
+                } else if (labels.length === 12) { // 年
+                    date.setMonth(startDate.getMonth() + i);
+                    
+                    // 计算月总时长
+                    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    let monthTotal = 0;
+                    
+                    const monthCurrent = new Date(monthStart);
+                    while (monthCurrent <= monthEnd) {
+                    const monthDateString = formatLocalDate(monthCurrent);
+                        const dayTasks = taskData[monthDateString] || [];
+                        
+                        dayTasks.forEach(task => {
+                            monthTotal += task.duration;
+                        });
+                        
+                        monthCurrent.setDate(monthCurrent.getDate() + 1);
+                    }
+                    
+                    data.push(monthTotal / 60); // 转换为小时
+                    continue;
+                }
+                
+                const dateString = formatLocalDate(date);
+                const dayTasks = taskData[dateString] || [];
+                
+                // 计算日总时长
+                let dayTotal = 0;
+                dayTasks.forEach(task => {
+                    dayTotal += task.duration;
+                });
+                
+                data.push(dayTotal / 60); // 转换为小时
+            }
+            
+            return data;
+        }
+        
+        // 准备手机克制数据
+        function preparePhoneResistData(startDate, endDate, labels) {
+            const data = [];
+            
+            for (let i = 0; i < labels.length; i++) {
+                const date = new Date(startDate);
+                if (labels.length === 7) { // 周
+                    date.setDate(startDate.getDate() + i);
+                } else if (labels.length === 10) { // 月
+                    date.setDate(startDate.getDate() + i * 3);
+                } else if (labels.length === 12) { // 年
+                    date.setMonth(startDate.getMonth() + i);
+                    
+                    // 计算月总次数
+                    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    let monthTotal = 0;
+                    
+                    const monthCurrent = new Date(monthStart);
+                    while (monthCurrent <= monthEnd) {
+                    const monthDateString = formatLocalDate(monthCurrent);
+                        if (phoneResistData.records[monthDateString]) {
+                            monthTotal += phoneResistData.records[monthDateString].count;
+                        }
+                        monthCurrent.setDate(monthCurrent.getDate() + 1);
+                    }
+                    
+                    data.push(monthTotal);
+                    continue;
+                }
+                
+                const dateString = formatLocalDate(date);
+                const dayRecord = phoneResistData.records[dateString];
+                
+                data.push(dayRecord ? dayRecord.count : 0);
+            }
+            
+            return data;
+        }
+
+        function prepareFocusDurationData(startDate, endDate, labels) {
+            const data = [];
+
+            for (let i = 0; i < labels.length; i++) {
+                const date = new Date(startDate);
+                if (labels.length === 7) {
+                    date.setDate(startDate.getDate() + i);
+                } else if (labels.length === 10) {
+                    date.setDate(startDate.getDate() + i * 3);
+                } else if (labels.length === 12) {
+                    date.setMonth(startDate.getMonth() + i);
+
+                    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    let monthTotal = 0;
+
+                    const monthCurrent = new Date(monthStart);
+                    while (monthCurrent <= monthEnd) {
+                        const monthDateString = formatLocalDate(monthCurrent);
+                        if (focusData[monthDateString]) {
+                            monthTotal += focusData[monthDateString].totalMinutes;
+                        }
+                        monthCurrent.setDate(monthCurrent.getDate() + 1);
+                    }
+
+                    data.push(monthTotal / 60);
+                    continue;
+                }
+
+                const dateString = formatLocalDate(date);
+                data.push((focusData[dateString]?.totalMinutes || 0) / 60);
+            }
+
+            return data;
+        }
+        
+        // 更新打卡率图表
+        function updateCheckinRateChart(labels, data) {
+            const ctx = document.getElementById('checkin-rate-chart').getContext('2d');
+            
+            // 销毁现有图表
+            if (window.checkinRateChart) {
+                window.checkinRateChart.destroy();
+            }
+            
+            window.checkinRateChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '打卡合格率 (%)',
+                        data: data,
+                        borderColor: '#1a56db',
+                        backgroundColor: 'rgba(26, 86, 219, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新时段打卡图表
+        function updateCheckinPeriodChart(data) {
+            const ctx = document.getElementById('checkin-period-chart').getContext('2d');
+            
+            // 销毁现有图表
+            if (window.checkinPeriodChart) {
+                window.checkinPeriodChart.destroy();
+            }
+            
+            window.checkinPeriodChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['上午', '下午', '晚上'],
+                    datasets: [
+                        {
+                            label: '打卡次数',
+                            data: [
+                                data.morning.checkIn + data.morning.checkOut,
+                                data.afternoon.checkIn + data.afternoon.checkOut,
+                                data.evening.checkIn + data.evening.checkOut
+                            ],
+                            backgroundColor: 'rgba(26, 86, 219, 0.7)',
+                            borderColor: 'rgba(26, 86, 219, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '合格次数',
+                            data: [
+                                data.morning.qualifiedCheckIn + data.morning.qualifiedCheckOut,
+                                data.afternoon.qualifiedCheckIn + data.afternoon.qualifiedCheckOut,
+                                data.evening.qualifiedCheckIn + data.evening.qualifiedCheckOut
+                            ],
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新任务时长图表
+        function updateTaskDurationChart(labels, data) {
+            const ctx = document.getElementById('task-duration-chart').getContext('2d');
+            
+            // 销毁现有图表
+            if (window.taskDurationChart) {
+                window.taskDurationChart.destroy();
+            }
+            
+            window.taskDurationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '任务时长 (小时)',
+                        data: data,
+                        backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新手机克制图表
+        function updatePhoneResistChart(labels, data) {
+            const ctx = document.getElementById('phone-resist-chart').getContext('2d');
+            
+            // 销毁现有图表
+            if (window.phoneResistChart) {
+                window.phoneResistChart.destroy();
+            }
+            
+            window.phoneResistChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '克制次数',
+                        data: data,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateFocusDurationChart(labels, data) {
+            const ctx = document.getElementById('focus-duration-chart').getContext('2d');
+
+            if (window.focusDurationChart) {
+                window.focusDurationChart.destroy();
+            }
+
+            window.focusDurationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '专注时长 (小时)',
+                        data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新综合统计
+        function updateSummaryStatistics() {
+            // 总打卡天数
+            const totalCheckinDays = Object.keys(checkinData).filter(date => {
+                const dayData = checkinData[date];
+                return !dayData.leave && (dayData.morning.checkIn || dayData.afternoon.checkIn || dayData.evening.checkIn);
+            }).length;
+            document.getElementById('total-checkin-days').textContent = totalCheckinDays;
+            
+            // 总任务时长(小时)
+            const totalTaskHours = calculateTotalTaskHours();
+            document.getElementById('total-task-hours').textContent = totalTaskHours;
+            
+            // 总克制次数
+            document.getElementById('total-phone-resist').textContent = phoneResistData.totalCount;
+
+            // 总专注时长(小时)
+            const totalFocusMinutes = Object.values(focusData).reduce((sum, day) => sum + (day.totalMinutes || 0), 0);
+            document.getElementById('total-focus-hours').textContent = Math.floor(totalFocusMinutes / 60);
+            
+            // 获得成就数
+            document.getElementById('achievement-count').textContent = achievements.length;
+        }
+        
+        // 更新今日状态
+        function updateTodayStatus() {
+            const today = getTodayString();
+            const dayData = checkinData[today];
+            
+            // 上午打卡状态
+            const morningStatus = document.getElementById('today-morning-status');
+            if (dayData.leave) {
+                morningStatus.textContent = '请假';
+                morningStatus.className = 'font-medium text-gray-500';
+            } else if (dayData.morning.checkIn && dayData.morning.checkOut) {
+                const checkInOk = dayData.morning.status.checkIn;
+                const checkOutOk = dayData.morning.status.checkOut;
+                
+                if (checkInOk && checkOutOk) {
+                    morningStatus.textContent = '合格';
+                    morningStatus.className = 'font-medium text-green-600';
+                } else {
+                    morningStatus.textContent = '不合格';
+                    morningStatus.className = 'font-medium text-red-600';
+                }
+            } else if (dayData.morning.checkIn) {
+                morningStatus.textContent = '已上班';
+                morningStatus.className = 'font-medium text-blue-600';
+            } else {
+                morningStatus.textContent = '-';
+                morningStatus.className = 'font-medium';
+            }
+            
+            // 下午打卡状态
+            const afternoonStatus = document.getElementById('today-afternoon-status');
+            if (dayData.leave) {
+                afternoonStatus.textContent = '请假';
+                afternoonStatus.className = 'font-medium text-gray-500';
+            } else if (dayData.afternoon.checkIn && dayData.afternoon.checkOut) {
+                const checkInOk = dayData.afternoon.status.checkIn;
+                const checkOutOk = dayData.afternoon.status.checkOut;
+                
+                if (checkInOk && checkOutOk) {
+                    afternoonStatus.textContent = '合格';
+                    afternoonStatus.className = 'font-medium text-green-600';
+                } else {
+                    afternoonStatus.textContent = '不合格';
+                    afternoonStatus.className = 'font-medium text-red-600';
+                }
+            } else if (dayData.afternoon.checkIn) {
+                afternoonStatus.textContent = '已上班';
+                afternoonStatus.className = 'font-medium text-blue-600';
+            } else {
+                afternoonStatus.textContent = '-';
+                afternoonStatus.className = 'font-medium';
+            }
+            
+            // 晚上打卡状态
+            const eveningStatus = document.getElementById('today-evening-status');
+            if (dayData.leave) {
+                eveningStatus.textContent = '请假';
+                eveningStatus.className = 'font-medium text-gray-500';
+            } else if (dayData.evening.checkIn && dayData.evening.checkOut) {
+                const checkInOk = dayData.evening.status.checkIn;
+                const checkOutOk = dayData.evening.status.checkOut;
+                
+                if (checkInOk && checkOutOk) {
+                    eveningStatus.textContent = '合格';
+                    eveningStatus.className = 'font-medium text-green-600';
+                } else {
+                    eveningStatus.textContent = '不合格';
+                    eveningStatus.className = 'font-medium text-red-600';
+                }
+            } else if (dayData.evening.checkIn) {
+                eveningStatus.textContent = '已上班';
+                eveningStatus.className = 'font-medium text-blue-600';
+            } else {
+                eveningStatus.textContent = '-';
+                eveningStatus.className = 'font-medium';
+            }
+            
+            // 手机克制次数
+            document.getElementById('today-phone-count').textContent = `${phoneResistData.records[today].count} 次`;
+            
+            // 进行中任务
+            const activeTaskElement = document.getElementById('today-active-task');
+            if (currentTask) {
+                activeTaskElement.textContent = currentTask.name;
+                activeTaskElement.className = 'font-medium text-blue-600';
+            } else {
+                activeTaskElement.textContent = '-';
+                activeTaskElement.className = 'font-medium';
+            }
+
+            // 今日专注时长
+            ensureDateData(today);
+            document.getElementById('today-focus-duration').textContent = `${focusData[today].totalMinutes} 分钟`;
+        }
+    </script>
+</body>
+</html>
