@@ -354,6 +354,265 @@
                 box-shadow: 0 32px 80px rgba(15,23,42,0.18);
                 backdrop-filter: blur(20px);
             }
+
+            .cat-card {
+                position: relative;
+                overflow: hidden;
+            }
+
+            .cat-card::after {
+                content: '';
+                position: absolute;
+                right: -2rem;
+                bottom: -2rem;
+                width: 9rem;
+                height: 9rem;
+                border-radius: 9999px;
+                background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0) 72%);
+                pointer-events: none;
+            }
+
+            .cat-figure {
+                position: relative;
+                width: 172px;
+                height: 172px;
+                margin: 0 auto;
+                cursor: pointer;
+                background: transparent;
+                border: 0;
+                padding: 0;
+                transition: transform 0.2s ease;
+            }
+
+            .cat-figure:hover {
+                transform: translateY(-2px) scale(1.02);
+            }
+
+            .cat-svg {
+                width: 100%;
+                height: 100%;
+                overflow: visible;
+                filter: drop-shadow(0 20px 26px rgba(245, 158, 11, 0.10));
+            }
+
+            .cat-outline {
+                stroke: rgba(146, 98, 46, 0.24);
+                stroke-width: 2.2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+            .cat-cream {
+                fill: #fff5e8;
+            }
+
+            .cat-orange {
+                fill: #ffd4a8;
+            }
+
+            .cat-orange-soft {
+                fill: #ffe6c9;
+            }
+
+            .cat-pink {
+                fill: #ffb9c7;
+            }
+
+            .cat-dark {
+                fill: #243042;
+            }
+
+            .cat-whisker {
+                stroke: rgba(146, 98, 46, 0.52);
+                stroke-width: 1.8;
+                stroke-linecap: round;
+            }
+
+            .cat-eye-shape {
+                transform-origin: center;
+                transition: all 0.24s ease;
+            }
+
+            .cat-mouth-line {
+                stroke: #9a5b2c;
+                stroke-width: 2.4;
+                stroke-linecap: round;
+                fill: none;
+                transition: all 0.24s ease;
+            }
+
+            .cat-ear-group,
+            .cat-head-group,
+            .cat-tail-group {
+                transform-box: fill-box;
+                transform-origin: center;
+            }
+
+            .cat-head-group {
+                transform-origin: 50% 58%;
+            }
+
+            .cat-ear-group {
+                transform-origin: 50% 86%;
+            }
+
+            .cat-tail-group {
+                transform-origin: 35% 85%;
+                animation: catTailSwish 2.8s ease-in-out infinite;
+            }
+
+            .cat-figure[data-expression="curious"] .cat-eye-shape {
+                transform: scale(1, 1.08);
+            }
+
+            .cat-figure[data-expression="happy"] .cat-eye-open,
+            .cat-figure[data-expression="trusting"] .cat-eye-open {
+                opacity: 0;
+            }
+
+            .cat-figure[data-expression="happy"] .cat-eye-smile,
+            .cat-figure[data-expression="trusting"] .cat-eye-smile {
+                opacity: 1;
+            }
+
+            .cat-figure[data-expression="trusting"] .cat-mouth-smile {
+                opacity: 0;
+            }
+
+            .cat-figure[data-expression="trusting"] .cat-mouth-big-smile {
+                opacity: 1;
+            }
+
+            .cat-figure[data-expression="adoring"] .cat-eye-open {
+                opacity: 0;
+            }
+
+            .cat-figure[data-expression="adoring"] .cat-eye-smile {
+                opacity: 0;
+            }
+
+            .cat-figure[data-expression="adoring"] .cat-eye-heart {
+                opacity: 1;
+            }
+
+            .cat-figure[data-expression="adoring"] .cat-mouth-smile {
+                opacity: 0;
+            }
+
+            .cat-figure[data-expression="adoring"] .cat-mouth-big-smile {
+                opacity: 1;
+            }
+
+            .cat-heart-burst {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                overflow: visible;
+            }
+
+            .cat-heart {
+                position: absolute;
+                left: 50%;
+                bottom: 38px;
+                font-size: 18px;
+                opacity: 0;
+                transform: translate(-50%, 0) scale(0.7);
+                animation: catHeartFloat 1.4s ease-out forwards;
+                filter: drop-shadow(0 6px 10px rgba(251, 113, 133, 0.24));
+            }
+
+            .cat-spark {
+                position: absolute;
+                right: 0.5rem;
+                top: 0.2rem;
+                width: 2rem;
+                height: 2rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1rem;
+                color: #f59e0b;
+                opacity: 0;
+                transform: scale(0.7) rotate(-18deg);
+                transition: opacity 0.2s ease, transform 0.2s ease;
+            }
+
+            .cat-figure.is-petted {
+                animation: catPetBounce 0.72s ease;
+            }
+
+            .cat-figure.is-petted .cat-head-group {
+                animation: catHeadNuzzle 0.72s ease;
+            }
+
+            .cat-figure.is-petted .cat-ear-group {
+                animation: catEarWiggle 0.72s ease;
+            }
+
+            .cat-figure.is-petted .cat-tail-group {
+                animation: catTailSwishFast 0.6s ease-in-out 2;
+            }
+
+            .cat-figure.is-fed {
+                animation: catFedBounce 0.9s ease;
+            }
+
+            .cat-figure.is-fed .cat-spark {
+                opacity: 1;
+                transform: scale(1.05) rotate(0deg);
+            }
+
+            @keyframes catTailSwish {
+                0%, 100% { transform: rotate(2deg); }
+                50% { transform: rotate(16deg); }
+            }
+
+            @keyframes catTailSwishFast {
+                0%, 100% { transform: rotate(2deg); }
+                50% { transform: rotate(24deg); }
+            }
+
+            @keyframes catPetBounce {
+                0% { transform: translateY(0) scale(1); }
+                35% { transform: translateY(-8px) scale(1.03); }
+                65% { transform: translateY(0) scale(0.99); }
+                100% { transform: translateY(0) scale(1); }
+            }
+
+            @keyframes catFedBounce {
+                0% { transform: translateY(0) scale(1); }
+                30% { transform: translateY(-10px) scale(1.06); }
+                60% { transform: translateY(0) scale(1); }
+                100% { transform: translateY(0) scale(1); }
+            }
+
+            @keyframes catHeadNuzzle {
+                0% { transform: translateY(0) rotate(0deg) scale(1); }
+                28% { transform: translateY(-2px) rotate(-5deg) scale(1.02); }
+                58% { transform: translateY(1px) rotate(4deg) scale(1.01); }
+                100% { transform: translateY(0) rotate(0deg) scale(1); }
+            }
+
+            @keyframes catEarWiggle {
+                0% { transform: rotate(0deg); }
+                30% { transform: rotate(-4deg); }
+                60% { transform: rotate(3deg); }
+                100% { transform: rotate(0deg); }
+            }
+
+            @keyframes catHeartFloat {
+                0% {
+                    opacity: 0;
+                    transform: translate(-50%, 10px) scale(0.7);
+                }
+                15% {
+                    opacity: 1;
+                }
+                100% {
+                    opacity: 0;
+                    transform: translate(calc(-50% + var(--heart-x, 0px)), -78px) scale(1.15);
+                }
+            }
         }
     </style>
 </head>
@@ -393,6 +652,12 @@
                             <button id="nav-focus" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
                                 <span class="font-medium">专注时长</span>
                                 <i class="fa fa-hourglass-half"></i>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="nav-sedentary" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">久坐提醒</span>
+                                <i class="fa fa-street-view"></i>
                             </button>
                         </li>
                         <li>
@@ -519,6 +784,105 @@
                             <div class="mt-4 text-center text-sm">
                                 <div id="evening-checkin-time" class="text-gray-600">上班: -</div>
                                 <div id="evening-checkout-time" class="text-gray-600">下班: -</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <div class="bg-blue-50 rounded-lg p-5 cat-card">
+                            <div class="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-6 items-center">
+                                <button type="button" id="cat-figure-button" class="cat-figure" aria-label="摸摸猫咪">
+                                    <div class="cat-heart-burst" id="cat-heart-burst"></div>
+                                    <div class="cat-spark">✦</div>
+                                    <svg class="cat-svg" viewBox="0 0 200 200" aria-hidden="true">
+                                        <g class="cat-tail-group">
+                                            <path class="cat-orange cat-outline" d="M144 138c22 2 34 18 28 33-3 8-12 13-21 13 11-7 11-16 5-23-5-6-12-8-20-9z"/>
+                                        </g>
+                                        <g class="cat-body-group">
+                                            <ellipse class="cat-cream cat-outline" cx="101" cy="135" rx="46" ry="38"/>
+                                            <ellipse class="cat-orange-soft" cx="100" cy="142" rx="24" ry="18"/>
+                                            <ellipse class="cat-cream cat-outline" cx="79" cy="162" rx="11" ry="9"/>
+                                            <ellipse class="cat-cream cat-outline" cx="121" cy="162" rx="11" ry="9"/>
+                                            <ellipse class="cat-pink" cx="79" cy="164" rx="4.2" ry="3.2"/>
+                                            <ellipse class="cat-pink" cx="121" cy="164" rx="4.2" ry="3.2"/>
+                                        </g>
+                                        <g class="cat-ear-group">
+                                            <path class="cat-orange cat-outline" d="M62 56l18-23 13 30z"/>
+                                            <path class="cat-orange cat-outline" d="M138 56l-18-23-13 30z"/>
+                                            <path class="cat-pink" d="M69 54l11-14 7 16z"/>
+                                            <path class="cat-pink" d="M131 54l-11-14-7 16z"/>
+                                        </g>
+                                        <g class="cat-head-group">
+                                            <circle class="cat-cream cat-outline" cx="100" cy="83" r="44"/>
+                                            <ellipse class="cat-orange" cx="79" cy="68" rx="11" ry="8"/>
+                                            <ellipse class="cat-orange" cx="121" cy="68" rx="11" ry="8"/>
+                                            <ellipse class="cat-orange-soft" cx="100" cy="96" rx="22" ry="17"/>
+                                            <ellipse class="cat-pink" cx="73" cy="95" rx="8" ry="5"/>
+                                            <ellipse class="cat-pink" cx="127" cy="95" rx="8" ry="5"/>
+
+                                            <g class="cat-eye-open">
+                                                <ellipse class="cat-dark cat-eye-shape" cx="83" cy="81" rx="7" ry="10"/>
+                                                <ellipse class="cat-dark cat-eye-shape" cx="117" cy="81" rx="7" ry="10"/>
+                                                <ellipse fill="rgba(255,255,255,0.78)" cx="85" cy="77" rx="1.8" ry="2.8"/>
+                                                <ellipse fill="rgba(255,255,255,0.78)" cx="119" cy="77" rx="1.8" ry="2.8"/>
+                                            </g>
+
+                                            <g class="cat-eye-smile" opacity="0">
+                                                <path class="cat-mouth-line" d="M74 82c4-7 14-7 18 0"/>
+                                                <path class="cat-mouth-line" d="M108 82c4-7 14-7 18 0"/>
+                                            </g>
+
+                                            <g class="cat-eye-heart" opacity="0">
+                                                <path fill="#fb7185" d="M76 79c0-4 3-7 7-7 3 0 5 2 6 4 1-2 3-4 6-4 4 0 7 3 7 7 0 9-13 15-13 15S76 88 76 79z"/>
+                                                <path fill="#fb7185" d="M110 79c0-4 3-7 7-7 3 0 5 2 6 4 1-2 3-4 6-4 4 0 7 3 7 7 0 9-13 15-13 15s-13-6-13-15z"/>
+                                            </g>
+
+                                            <path class="cat-whisker" d="M62 98l-18-4"/>
+                                            <path class="cat-whisker" d="M62 104l-19 2"/>
+                                            <path class="cat-whisker" d="M138 98l18-4"/>
+                                            <path class="cat-whisker" d="M138 104l19 2"/>
+
+                                            <path class="cat-pink cat-outline" d="M100 92c4 0 7 3 7 5 0 3-3 5-7 5s-7-2-7-5c0-2 3-5 7-5z"/>
+                                            <path class="cat-mouth-line cat-mouth-smile" d="M90 108c5 7 15 7 20 0"/>
+                                            <path class="cat-mouth-line cat-mouth-big-smile" d="M86 106c7 11 21 11 28 0" opacity="0"/>
+                                        </g>
+                                    </svg>
+                                </button>
+                                <div>
+                                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                                        <div>
+                                            <h3 class="text-xl font-semibold text-primary">今日陪伴猫咪</h3>
+                                            <p id="cat-mood-text" class="text-sm text-gray-600 mt-1">先专注一会儿，换猫粮来喂它吧。</p>
+                                        </div>
+                                        <button id="feed-cat-button" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all">
+                                            喂猫咪 1 个猫粮
+                                        </button>
+                                    </div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <div class="bg-white rounded-lg p-4 text-center">
+                                            <div class="text-2xl font-bold text-primary" id="cat-today-focus-hours">0</div>
+                                            <div class="text-xs text-gray-600 mt-1">今日专注小时</div>
+                                        </div>
+                                        <div class="bg-white rounded-lg p-4 text-center">
+                                            <div class="text-2xl font-bold text-primary" id="cat-food-available">0</div>
+                                            <div class="text-xs text-gray-600 mt-1">可兑换猫粮</div>
+                                        </div>
+                                        <div class="bg-white rounded-lg p-4 text-center">
+                                            <div class="text-2xl font-bold text-primary" id="cat-food-fed">0</div>
+                                            <div class="text-xs text-gray-600 mt-1">今日已喂食</div>
+                                        </div>
+                                        <div class="bg-white rounded-lg p-4 text-center">
+                                            <div class="text-2xl font-bold text-primary" id="cat-affection">0</div>
+                                            <div class="text-xs text-gray-600 mt-1">猫咪好感度</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-3">
+                                            <div id="cat-affection-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
+                                        </div>
+                                        <p id="cat-food-hint" class="text-xs text-gray-500 mt-2">每累计 60 分钟专注时长可兑换 1 个猫粮。</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -800,6 +1164,80 @@
                     </div>
                 </section>
 
+                <!-- 久坐提醒模块 -->
+                <section id="sedentary-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-street-view mr-2 text-primary"></i>久坐提醒
+                    </h2>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 mb-6">
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <div class="flex items-start justify-between gap-4 mb-4">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-primary">循环模式</h3>
+                                    <p class="text-sm text-gray-600 mt-1">坐下 45 分钟，到点后自动提醒起身站立 5 分钟，完成后自动进入下一轮。</p>
+                                </div>
+                                <span id="sedentary-phase-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-600">未开始</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4">
+                                    <div class="text-sm text-gray-500">当前轮次</div>
+                                    <div class="text-3xl font-bold text-primary mt-2" id="sedentary-cycle-number">-</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4">
+                                    <div class="text-sm text-gray-500">本阶段</div>
+                                    <div class="text-3xl font-bold text-primary mt-2" id="sedentary-phase-label">未开始</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 bg-white rounded-lg p-4">
+                                <div class="text-sm text-gray-500">当前提示</div>
+                                <div class="text-base text-gray-700 mt-2 leading-7" id="sedentary-hint-text">点击“开始计时”后进入坐下 45 分钟的第一轮循环。</div>
+                            </div>
+
+                            <div class="mt-4 flex flex-wrap gap-3">
+                                <button id="start-sedentary-session" class="bg-primary hover:bg-primary/90 text-white py-2.5 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                    开始计时
+                                </button>
+                                <button id="pause-sedentary-session" class="bg-white border border-blue-200 text-primary py-2.5 px-6 rounded-lg font-medium transition-all hidden">
+                                    暂停
+                                </button>
+                                <button id="resume-sedentary-session" class="bg-white border border-blue-200 text-primary py-2.5 px-6 rounded-lg font-medium transition-all hidden">
+                                    继续
+                                </button>
+                                <button id="stop-sedentary-session" class="bg-danger hover:bg-danger/90 text-white py-2.5 px-6 rounded-lg font-medium btn-shadow transition-all hidden">
+                                    停止并重置
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <div class="text-center">
+                                <div class="text-sm text-gray-500 mb-2">主倒计时</div>
+                                <div class="text-6xl font-bold text-primary tracking-tight mb-3" id="sedentary-countdown-display">45:00</div>
+                                <div class="text-sm text-gray-600 mb-4" id="sedentary-countdown-status">当前没有进行中的久坐提醒循环</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 mb-6">
+                                <div id="sedentary-progress-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="sedentary-today-cycles">0</div>
+                                    <div class="text-sm text-gray-600">今日完成轮次</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="sedentary-today-stand-minutes">0</div>
+                                    <div class="text-sm text-gray-600">今日总站立分钟</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 bg-white rounded-lg p-4 text-sm text-gray-600 leading-7">
+                                提醒方式采用浏览器通知，若当前环境不支持或未授权，会自动使用弹窗提醒。刷新页面后会恢复当前阶段，并自动补做超时阶段切换。
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- 请假记录模块 -->
                 <section id="leave-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
                     <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -1054,9 +1492,18 @@
         let rulesConfig = null; // 打卡规则配置
         let focusData = {}; // 专注记录
         let currentFocusSession = null; // 当前专注会话
+        let sedentaryData = {}; // 久坐提醒记录
+        let currentSedentarySession = null; // 当前久坐提醒会话
+        let catData = { affection: 0, fedRecords: {} }; // 猫咪互动数据
         let taskTimer = null; // 任务计时器
         let taskStartTime = null; // 任务开始时间
         let focusTimer = null; // 专注计时器
+        let sedentaryTimer = null; // 久坐提醒计时器
+        let catMessageTimer = null; // 猫咪临时台词计时器
+        let catTemporaryMessage = ''; // 猫咪临时台词
+
+        const SEDENTARY_SIT_MINUTES = 45;
+        const SEDENTARY_STAND_MINUTES = 5;
         
         const STORAGE_KEYS = {
             appState: 'phdWorkstationAppState',
@@ -1069,7 +1516,10 @@
             currentTask: 'currentTask',
             rulesConfig: 'rulesConfig',
             focusData: 'focusData',
-            currentFocusSession: 'currentFocusSession'
+            currentFocusSession: 'currentFocusSession',
+            sedentaryData: 'sedentaryData',
+            currentSedentarySession: 'currentSedentarySession',
+            catData: 'catData'
         };
 
         const PERIOD_LABELS = {
@@ -1124,6 +1574,12 @@
 
             // 初始化专注时长功能
             initFocusManagement();
+
+            // 初始化久坐提醒功能
+            initSedentaryReminder();
+
+            // 初始化猫咪陪伴功能
+            initCatCompanion();
             
             // 初始化请假功能
             initLeaveManagement();
@@ -1385,6 +1841,10 @@
             if (!focusData[date]) {
                 focusData[date] = { totalMinutes: 0, sessions: [] };
             }
+
+            if (!sedentaryData[date]) {
+                sedentaryData[date] = { completedCycles: 0, totalStandMinutes: 0 };
+            }
         }
         
         function loadAppState() {
@@ -1404,7 +1864,10 @@
                 currentTask: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentTask), null),
                 rulesConfig: safeParseJSON(localStorage.getItem(STORAGE_KEYS.rulesConfig), createDefaultRulesConfig()),
                 focusData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusData), {}),
-                currentFocusSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentFocusSession), null)
+                currentFocusSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentFocusSession), null),
+                sedentaryData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.sedentaryData), {}),
+                currentSedentarySession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentSedentarySession), null),
+                catData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.catData), { affection: 0, fedRecords: {} })
             };
         }
         
@@ -1421,6 +1884,9 @@
             rulesConfig = normalizeRulesConfig(state.rulesConfig || createDefaultRulesConfig());
             focusData = state.focusData || {};
             currentFocusSession = state.currentFocusSession || null;
+            sedentaryData = state.sedentaryData || {};
+            currentSedentarySession = state.currentSedentarySession || null;
+            catData = state.catData || { affection: 0, fedRecords: {} };
             
             // 确保phoneResistData格式正确
             if (!phoneResistData.records) {
@@ -1442,6 +1908,14 @@
             if (currentFocusSession && currentFocusSession.date) {
                 ensureDateData(currentFocusSession.date);
             }
+
+            if (currentSedentarySession && currentSedentarySession.date) {
+                ensureDateData(currentSedentarySession.date);
+            }
+
+            if (!catData.fedRecords) {
+                catData.fedRecords = {};
+            }
             
             recomputeAllCheckinStatuses();
             
@@ -1462,7 +1936,10 @@
                 currentTask,
                 rulesConfig,
                 focusData,
-                currentFocusSession
+                currentFocusSession,
+                sedentaryData,
+                currentSedentarySession,
+                catData
             };
             
             try {
@@ -1478,6 +1955,9 @@
                 localStorage.setItem(STORAGE_KEYS.rulesConfig, JSON.stringify(rulesConfig));
                 localStorage.setItem(STORAGE_KEYS.focusData, JSON.stringify(focusData));
                 localStorage.setItem(STORAGE_KEYS.currentFocusSession, JSON.stringify(currentFocusSession));
+                localStorage.setItem(STORAGE_KEYS.sedentaryData, JSON.stringify(sedentaryData));
+                localStorage.setItem(STORAGE_KEYS.currentSedentarySession, JSON.stringify(currentSedentarySession));
+                localStorage.setItem(STORAGE_KEYS.catData, JSON.stringify(catData));
             } catch (error) {
                 console.error('本地存储失败，请检查浏览器存储空间。', error);
             }
@@ -1513,8 +1993,8 @@
         
         // 初始化导航切换
         function initNavigation() {
-            const sections = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'leave-section', 'stats-section', 'rules-section'];
-            const navButtons = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-leave', 'nav-stats', 'nav-rules'];
+            const sections = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
+            const navButtons = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
             
             navButtons.forEach((btnId, index) => {
                 document.getElementById(btnId).addEventListener('click', function() {
@@ -1542,6 +2022,8 @@
                         updateStatisticsCharts('week');
                     } else if (sections[index] === 'rules-section') {
                         renderRulesForm();
+                    } else if (sections[index] === 'sedentary-section') {
+                        updateSedentaryDisplay();
                     }
                 });
             });
@@ -1614,11 +2096,493 @@
             restoreFocusSession();
         }
 
-        function requestFocusNotificationPermission() {
+        function initSedentaryReminder() {
+            document.getElementById('start-sedentary-session').addEventListener('click', function() {
+                startSedentaryCycle();
+            });
+
+            document.getElementById('pause-sedentary-session').addEventListener('click', function() {
+                pauseSedentaryCycle();
+            });
+
+            document.getElementById('resume-sedentary-session').addEventListener('click', function() {
+                resumeSedentaryCycle();
+            });
+
+            document.getElementById('stop-sedentary-session').addEventListener('click', function() {
+                stopSedentaryCycle();
+            });
+
+            updateSedentaryDisplay();
+            restoreSedentarySession();
+        }
+
+        function createSedentarySession(phase, cycleCount, date, startTimestamp) {
+            const durationMinutes = phase === 'sit' ? SEDENTARY_SIT_MINUTES : SEDENTARY_STAND_MINUTES;
+            const durationMs = durationMinutes * 60 * 1000;
+            return {
+                phase,
+                startTimestamp,
+                endTimestamp: startTimestamp + durationMs,
+                isPaused: false,
+                remainingMs: durationMs,
+                cycleCount,
+                date
+            };
+        }
+
+        function getSedentaryPhaseLabel(phase) {
+            if (phase === 'sit') return '坐下中';
+            if (phase === 'stand') return '站立中';
+            return '未开始';
+        }
+
+        function getSedentaryPhaseHint(phase, isPaused) {
+            if (!phase) {
+                return '点击“开始计时”后进入坐下 45 分钟的第一轮循环。';
+            }
+            if (phase === 'sit') {
+                return isPaused ? '已暂停在坐下阶段，准备好后继续本轮 45 分钟计时。' : '继续坐下专注，满 45 分钟后会自动提醒你起身站立。';
+            }
+            return isPaused ? '已暂停在站立阶段，继续后完成 5 分钟站立倒计时。' : '请起身活动 5 分钟，完成后系统会自动进入下一轮坐下阶段。';
+        }
+
+        function requestNotificationPermission() {
             if (!('Notification' in window)) return;
             if (Notification.permission === 'default') {
                 Notification.requestPermission().catch(() => {});
             }
+        }
+
+        function showSedentaryReminder(message) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification('久坐提醒', { body: message });
+                } catch (error) {
+                    console.warn('浏览器通知发送失败，已退回弹窗提醒。', error);
+                    alert(message);
+                    return;
+                }
+            } else {
+                alert(message);
+            }
+        }
+
+        function startSedentaryCycle() {
+            if (currentSedentarySession) {
+                const shouldReplace = confirm('当前已有进行中的久坐提醒循环。是否停止当前循环并重新开始？');
+                if (!shouldReplace) return;
+                stopSedentaryCycle(false);
+            }
+
+            requestNotificationPermission();
+
+            const today = getTodayString();
+            ensureDateData(today);
+            currentSedentarySession = createSedentarySession('sit', 1, today, Date.now());
+            saveData();
+            startSedentaryTimer();
+        }
+
+        function pauseSedentaryCycle() {
+            if (!currentSedentarySession || currentSedentarySession.isPaused) return;
+
+            currentSedentarySession.remainingMs = Math.max(currentSedentarySession.endTimestamp - Date.now(), 0);
+            currentSedentarySession.isPaused = true;
+
+            if (sedentaryTimer) {
+                clearInterval(sedentaryTimer);
+                sedentaryTimer = null;
+            }
+
+            saveData();
+            updateSedentaryDisplay();
+        }
+
+        function resumeSedentaryCycle() {
+            if (!currentSedentarySession || !currentSedentarySession.isPaused) return;
+
+            const now = Date.now();
+            const remainingMs = Math.max(currentSedentarySession.remainingMs || 0, 1000);
+            currentSedentarySession.startTimestamp = now;
+            currentSedentarySession.endTimestamp = now + remainingMs;
+            currentSedentarySession.isPaused = false;
+            currentSedentarySession.remainingMs = remainingMs;
+
+            saveData();
+            startSedentaryTimer();
+        }
+
+        function stopSedentaryCycle(shouldConfirm = true) {
+            if (!currentSedentarySession) {
+                updateSedentaryDisplay();
+                return;
+            }
+
+            if (shouldConfirm) {
+                const confirmStop = confirm('停止后会清空当前循环，但会保留今天已经完成的轮次统计。确定停止吗？');
+                if (!confirmStop) return;
+            }
+
+            if (sedentaryTimer) {
+                clearInterval(sedentaryTimer);
+                sedentaryTimer = null;
+            }
+
+            currentSedentarySession = null;
+            saveData();
+            updateSedentaryDisplay();
+        }
+
+        function restoreSedentarySession() {
+            if (!currentSedentarySession) {
+                updateSedentaryDisplay();
+                return;
+            }
+
+            if (currentSedentarySession.date) {
+                ensureDateData(currentSedentarySession.date);
+            }
+
+            if (currentSedentarySession.isPaused) {
+                updateSedentaryDisplay();
+                return;
+            }
+
+            while (currentSedentarySession && !currentSedentarySession.isPaused && Date.now() >= currentSedentarySession.endTimestamp) {
+                advanceSedentaryPhase({
+                    notify: false,
+                    transitionTimestamp: currentSedentarySession.endTimestamp
+                });
+            }
+
+            if (!currentSedentarySession) {
+                updateSedentaryDisplay();
+                return;
+            }
+
+            startSedentaryTimer();
+        }
+
+        function startSedentaryTimer() {
+            if (sedentaryTimer) {
+                clearInterval(sedentaryTimer);
+            }
+
+            updateSedentaryDisplay();
+
+            sedentaryTimer = setInterval(() => {
+                if (!currentSedentarySession || currentSedentarySession.isPaused) return;
+
+                if (Date.now() >= currentSedentarySession.endTimestamp) {
+                    advanceSedentaryPhase();
+                    return;
+                }
+
+                updateSedentaryDisplay();
+            }, 1000);
+        }
+
+        function advanceSedentaryPhase(options = {}) {
+            if (!currentSedentarySession) return;
+
+            const notify = options.notify !== false;
+            const transitionTimestamp = options.transitionTimestamp || Date.now();
+            const sessionDate = currentSedentarySession.date || getTodayString();
+            ensureDateData(sessionDate);
+
+            if (currentSedentarySession.phase === 'sit') {
+                if (notify) {
+                    showSedentaryReminder('坐下 45 分钟已完成，请现在起身活动 5 分钟。');
+                }
+
+                currentSedentarySession = createSedentarySession(
+                    'stand',
+                    currentSedentarySession.cycleCount || 1,
+                    sessionDate,
+                    transitionTimestamp
+                );
+            } else {
+                sedentaryData[sessionDate].completedCycles += 1;
+                sedentaryData[sessionDate].totalStandMinutes += SEDENTARY_STAND_MINUTES;
+
+                if (notify) {
+                    showSedentaryReminder('本轮站立 5 分钟已完成，开始下一轮坐下 45 分钟。');
+                }
+
+                currentSedentarySession = createSedentarySession(
+                    'sit',
+                    (currentSedentarySession.cycleCount || 1) + 1,
+                    sessionDate,
+                    transitionTimestamp
+                );
+            }
+
+            saveData();
+            updateSedentaryDisplay();
+
+            if (currentSedentarySession && !currentSedentarySession.isPaused) {
+                startSedentaryTimer();
+            }
+        }
+
+        function updateSedentaryDisplay() {
+            const today = getTodayString();
+            ensureDateData(today);
+
+            const countdownDisplay = document.getElementById('sedentary-countdown-display');
+            const countdownStatus = document.getElementById('sedentary-countdown-status');
+            const phaseLabel = document.getElementById('sedentary-phase-label');
+            const phaseBadge = document.getElementById('sedentary-phase-badge');
+            const cycleNumber = document.getElementById('sedentary-cycle-number');
+            const hintText = document.getElementById('sedentary-hint-text');
+            const progressBar = document.getElementById('sedentary-progress-bar');
+            const pauseButton = document.getElementById('pause-sedentary-session');
+            const resumeButton = document.getElementById('resume-sedentary-session');
+            const stopButton = document.getElementById('stop-sedentary-session');
+
+            document.getElementById('sedentary-today-cycles').textContent = sedentaryData[today].completedCycles;
+            document.getElementById('sedentary-today-stand-minutes').textContent = sedentaryData[today].totalStandMinutes;
+
+            if (!currentSedentarySession) {
+                countdownDisplay.textContent = '45:00';
+                countdownStatus.textContent = '当前没有进行中的久坐提醒循环';
+                phaseLabel.textContent = '未开始';
+                cycleNumber.textContent = '-';
+                hintText.textContent = getSedentaryPhaseHint(null, false);
+                progressBar.style.width = '0%';
+                phaseBadge.textContent = '未开始';
+                phaseBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-600';
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                stopButton.classList.add('hidden');
+                return;
+            }
+
+            const durationMinutes = currentSedentarySession.phase === 'sit' ? SEDENTARY_SIT_MINUTES : SEDENTARY_STAND_MINUTES;
+            const totalMs = durationMinutes * 60 * 1000;
+            const remainingMs = currentSedentarySession.isPaused
+                ? Math.max(currentSedentarySession.remainingMs || 0, 0)
+                : Math.max(currentSedentarySession.endTimestamp - Date.now(), 0);
+            const remainingSeconds = Math.ceil(remainingMs / 1000);
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const elapsedMs = Math.max(0, totalMs - remainingMs);
+            const progress = totalMs > 0 ? Math.min((elapsedMs / totalMs) * 100, 100) : 0;
+            const phaseText = getSedentaryPhaseLabel(currentSedentarySession.phase);
+
+            countdownDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            countdownStatus.textContent = currentSedentarySession.isPaused
+                ? `已暂停：第 ${currentSedentarySession.cycleCount} 轮${phaseText}`
+                : `进行中：第 ${currentSedentarySession.cycleCount} 轮${phaseText}`;
+            phaseLabel.textContent = phaseText;
+            cycleNumber.textContent = currentSedentarySession.cycleCount;
+            hintText.textContent = getSedentaryPhaseHint(currentSedentarySession.phase, currentSedentarySession.isPaused);
+            progressBar.style.width = `${progress}%`;
+
+            if (currentSedentarySession.phase === 'sit') {
+                phaseBadge.textContent = currentSedentarySession.isPaused ? '坐下已暂停' : '坐下中';
+                phaseBadge.className = currentSedentarySession.isPaused
+                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700'
+                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
+            } else {
+                phaseBadge.textContent = currentSedentarySession.isPaused ? '站立已暂停' : '站立中';
+                phaseBadge.className = currentSedentarySession.isPaused
+                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700'
+                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+            }
+
+            stopButton.classList.remove('hidden');
+            if (currentSedentarySession.isPaused) {
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.remove('hidden');
+            } else {
+                pauseButton.classList.remove('hidden');
+                resumeButton.classList.add('hidden');
+            }
+        }
+
+        function initCatCompanion() {
+            document.getElementById('feed-cat-button').addEventListener('click', function() {
+                feedCat();
+            });
+
+            document.getElementById('cat-figure-button').addEventListener('click', function() {
+                petCat();
+            });
+
+            updateCatCompanion();
+        }
+
+        function getTodayFedCount() {
+            const today = getTodayString();
+            return catData.fedRecords[today] || 0;
+        }
+
+        function getAvailableCatFood() {
+            const today = getTodayString();
+            ensureDateData(today);
+            const totalFocusMinutes = focusData[today].totalMinutes || 0;
+            const earnedFood = Math.floor(totalFocusMinutes / 60);
+            return Math.max(0, earnedFood - getTodayFedCount());
+        }
+
+        function getCatMoodText(affection) {
+            if (affection >= 40) return '猫咪已经非常信任你了，正在开心地蹭蹭你。';
+            if (affection >= 20) return '猫咪开始对你放松下来，尾巴轻轻摇着。';
+            if (affection >= 10) return '猫咪熟悉了你的气味，愿意坐在你旁边。';
+            if (affection >= 1) return '猫咪记住你了，正歪头等下一口猫粮。';
+            return '先专注一会儿，换猫粮来喂它吧。';
+        }
+
+        function calculateFocusStreak() {
+            let streak = 0;
+            const cursor = new Date();
+
+            while (true) {
+                const dateKey = formatLocalDate(cursor);
+                const dayFocus = focusData[dateKey];
+                if (!dayFocus || !dayFocus.totalMinutes || dayFocus.totalMinutes <= 0) {
+                    break;
+                }
+                streak++;
+                cursor.setDate(cursor.getDate() - 1);
+            }
+
+            return streak;
+        }
+
+        function getCatExpression(affection, streak) {
+            if (affection >= 36 || streak >= 14) return 'adoring';
+            if (affection >= 18 || streak >= 7) return 'trusting';
+            if (affection >= 6 || streak >= 3) return 'happy';
+            return 'curious';
+        }
+
+        function getCatDefaultMessage(affection, streak) {
+            if (streak >= 14) return '连续专注两周解锁：猫咪已经把你认作最可靠的科研搭子了。';
+            if (streak >= 7) return '连续专注一周解锁：猫咪每天都会准时来工位等你。';
+            if (streak >= 3) return '连续专注三天解锁：猫咪愿意趴在你旁边安静陪着你。';
+            return getCatMoodText(affection);
+        }
+
+        function setCatTemporaryMessage(message, duration = 2200) {
+            catTemporaryMessage = message;
+            clearTimeout(catMessageTimer);
+            document.getElementById('cat-mood-text').textContent = message;
+            catMessageTimer = setTimeout(() => {
+                catTemporaryMessage = '';
+                updateCatCompanion();
+            }, duration);
+        }
+
+        function animateCat(reactionClass) {
+            const figure = document.getElementById('cat-figure-button');
+            figure.classList.remove('is-petted', 'is-fed');
+            void figure.offsetWidth;
+            figure.classList.add(reactionClass);
+            setTimeout(() => {
+                figure.classList.remove(reactionClass);
+            }, reactionClass === 'is-fed' ? 950 : 760);
+        }
+
+        function spawnCatHearts(count = 3) {
+            const burst = document.getElementById('cat-heart-burst');
+            burst.innerHTML = '';
+
+            for (let i = 0; i < count; i++) {
+                const heart = document.createElement('span');
+                heart.className = 'cat-heart';
+                heart.textContent = i % 3 === 0 ? '❤' : (i % 3 === 1 ? '♡' : '❤');
+                heart.style.setProperty('--heart-x', `${(Math.random() * 70) - 35}px`);
+                heart.style.animationDelay = `${i * 0.08}s`;
+                burst.appendChild(heart);
+            }
+
+            setTimeout(() => {
+                burst.innerHTML = '';
+            }, 1600);
+        }
+
+        function updateCatCompanion() {
+            const today = getTodayString();
+            ensureDateData(today);
+
+            const totalFocusMinutes = focusData[today].totalMinutes || 0;
+            const availableFood = getAvailableCatFood();
+            const fedCount = getTodayFedCount();
+            const affection = catData.affection || 0;
+            const focusStreak = calculateFocusStreak();
+            const catExpression = getCatExpression(affection, focusStreak);
+
+            document.getElementById('cat-today-focus-hours').textContent = (totalFocusMinutes / 60).toFixed(totalFocusMinutes >= 60 ? 1 : 0);
+            document.getElementById('cat-food-available').textContent = availableFood;
+            document.getElementById('cat-food-fed').textContent = fedCount;
+            document.getElementById('cat-affection').textContent = affection;
+            if (!catTemporaryMessage) {
+                document.getElementById('cat-mood-text').textContent = getCatDefaultMessage(affection, focusStreak);
+            }
+            document.getElementById('cat-affection-bar').style.width = `${Math.min(100, affection)}%`;
+            document.getElementById('cat-food-hint').textContent = `今日已专注 ${totalFocusMinutes} 分钟，连续专注 ${focusStreak} 天。每累计 60 分钟可兑换 1 个猫粮。`;
+            document.getElementById('cat-figure-button').dataset.expression = catExpression;
+
+            const feedButton = document.getElementById('feed-cat-button');
+            if (availableFood > 0) {
+                feedButton.disabled = false;
+                feedButton.textContent = '喂猫咪 1 个猫粮';
+                feedButton.classList.remove('bg-gray-200', 'text-gray-700');
+                feedButton.classList.add('bg-primary', 'text-white', 'btn-shadow');
+            } else {
+                feedButton.disabled = true;
+                feedButton.textContent = '猫粮不足，先去专注';
+                feedButton.classList.remove('bg-primary', 'text-white', 'btn-shadow');
+                feedButton.classList.add('bg-gray-200', 'text-gray-700');
+            }
+        }
+
+        function feedCat() {
+            const availableFood = getAvailableCatFood();
+            if (availableFood <= 0) {
+                updateCatCompanion();
+                return;
+            }
+
+            const today = getTodayString();
+            catData.fedRecords[today] = getTodayFedCount() + 1;
+            catData.affection = (catData.affection || 0) + 1;
+
+            saveData();
+            animateCat('is-fed');
+            spawnCatHearts(5);
+            updateCatCompanion();
+            setCatTemporaryMessage('喵呜！这口猫粮很好吃，好感度又上升啦。', 2600);
+        }
+
+        function petCat() {
+            const affection = catData.affection || 0;
+            const focusStreak = calculateFocusStreak();
+            const petMessages = [];
+
+            if (affection >= 18) {
+                petMessages.push('呼噜呼噜……猫咪把脑袋凑过来让你继续摸。');
+            }
+            if (focusStreak >= 7) {
+                petMessages.push('猫咪眯起眼睛，像是知道你最近一直很努力。');
+            }
+            if (getAvailableCatFood() > 0) {
+                petMessages.push('猫咪闻到了你口袋里的猫粮味道，尾巴晃得更快了。');
+            }
+
+            petMessages.push('猫咪抬头看着你，轻轻“喵”了一声。');
+            petMessages.push('你摸了摸猫咪，它开心地晃了晃尾巴。');
+
+            animateCat('is-petted');
+            spawnCatHearts(2);
+            setCatTemporaryMessage(petMessages[Math.floor(Math.random() * petMessages.length)], 2200);
+        }
+
+        function requestFocusNotificationPermission() {
+            requestNotificationPermission();
         }
 
         function startFocusSession() {
@@ -1744,6 +2708,7 @@
             saveData();
             updateFocusTimerDisplay();
             updateTodayFocusSummary();
+            updateCatCompanion();
             updateTodayStatus();
             updateSummaryStatistics();
 
@@ -3233,6 +4198,7 @@
             // 今日专注时长
             ensureDateData(today);
             document.getElementById('today-focus-duration').textContent = `${focusData[today].totalMinutes} 分钟`;
+            updateCatCompanion();
         }
     </script>
 </body>
