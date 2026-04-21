@@ -1388,6 +1388,7 @@
                                 class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center">
                             <span class="text-sm text-gray-500">点整</span>
                         </div>
+                        <p class="text-xs text-gray-500 mt-3">晚上下班可打卡窗口会自动延长到次日翻页时刻。例如翻页时刻为 4 点时，默认窗口会从 20:00 自动延长到次日 04:00。</p>
                     </div>
 
                     <div class="grid grid-cols-1 gap-6">
@@ -1514,6 +1515,8 @@
         let sedentaryTimer = null; // 久坐提醒计时器
         let catMessageTimer = null; // 猫咪临时台词计时器
         let catTemporaryMessage = ''; // 猫咪临时台词
+        let lastRenderedNaturalDate = null; // 最近一次渲染的自然日
+        let lastRenderedWorkDay = null; // 最近一次渲染的工作日
 
         const SEDENTARY_SIT_MINUTES = 45;
         const SEDENTARY_STAND_MINUTES = 5;
@@ -1671,12 +1674,22 @@
 
         function normalizeTimeValue(timeValue) {
             if (!timeValue) return '00:00';
-            if (timeValue === '24:00') return '24:00';
             const parts = timeValue.split(':');
             if (parts.length < 2) return '00:00';
-            const hour = String(Math.min(Math.max(parseInt(parts[0], 10) || 0, 0), 23)).padStart(2, '0');
+            const hour = String(Math.min(Math.max(parseInt(parts[0], 10) || 0, 0), 47)).padStart(2, '0');
             const minute = String(Math.min(Math.max(parseInt(parts[1], 10) || 0, 0), 59)).padStart(2, '0');
             return `${hour}:${minute}`;
+        }
+
+        function minutesToTimeString(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        function toTimeInputValue(timeValue) {
+            const normalized = normalizeTimeValue(timeValue);
+            return timeToMinutes(normalized) >= 1440 ? '23:59' : normalized;
         }
 
         function normalizeRulesConfig(config) {
@@ -1702,9 +1715,13 @@
             return (hours * 60) + (minutes || 0);
         }
 
-        function currentTimeToMinutes() {
+        function currentTimeToMinutes(options = {}) {
             const now = getCurrentTime();
-            return (now.hour * 60) + now.minute;
+            let minutes = (now.hour * 60) + now.minute;
+            if (options.rolloverAware && now.hour < dayRolloverHour) {
+                minutes += 1440;
+            }
+            return minutes;
         }
 
         function isMinuteInRange(value, start, end, inclusiveEnd = true) {
@@ -1724,8 +1741,40 @@
             return rulesConfig[period][action];
         }
 
+        function getEffectiveAllowedRange(period, action) {
+            const rule = getRule(period, action);
+            const range = { ...rule.allowed };
+
+            if (period === 'evening' && action === 'checkOut') {
+                range.end = minutesToTimeString(timeToMinutes(range.end) + dayRolloverHour * 60);
+            }
+
+            return range;
+        }
+
+        function getRecordedCheckinMinutes(period, action, timeString) {
+            let minutes = timeToMinutes(timeString);
+
+            if (period === 'evening' && action === 'checkOut' && minutes < dayRolloverHour * 60) {
+                minutes += 1440;
+            }
+
+            return minutes;
+        }
+
+        function formatDisplayTime(timeString) {
+            const totalMinutes = timeToMinutes(timeString);
+            if (totalMinutes === 1440) {
+                return '24:00';
+            }
+            if (totalMinutes > 1440) {
+                return `次日${minutesToTimeString(totalMinutes - 1440)}`;
+            }
+            return normalizeTimeValue(timeString);
+        }
+
         function formatRuleRange(range) {
-            return `${range.start} - ${range.end}`;
+            return `${formatDisplayTime(range.start)} - ${formatDisplayTime(range.end)}`;
         }
 
         function buildQualifiedLabel(period) {
@@ -1736,8 +1785,8 @@
 
         function applyRulesToCheckinCard() {
             ['morning', 'afternoon', 'evening'].forEach(period => {
-                document.getElementById(`${period}-checkin-window-label`).textContent = `上班时间: ${formatRuleRange(getRule(period, 'checkIn').allowed)}`;
-                document.getElementById(`${period}-checkout-window-label`).textContent = `下班时间: ${formatRuleRange(getRule(period, 'checkOut').allowed)}`;
+                document.getElementById(`${period}-checkin-window-label`).textContent = `上班时间: ${formatRuleRange(getEffectiveAllowedRange(period, 'checkIn'))}`;
+                document.getElementById(`${period}-checkout-window-label`).textContent = `下班时间: ${formatRuleRange(getEffectiveAllowedRange(period, 'checkOut'))}`;
                 document.getElementById(`${period}-qualified-label`).textContent = buildQualifiedLabel(period);
             });
         }
@@ -1753,11 +1802,7 @@
                 }
 
                 if (dayData[period].checkOut) {
-                    // 晚上下班若记录在凌晨（HH < dayRolloverHour），折算为延伸分钟再判合格
-                    let checkoutMinutes = timeToMinutes(dayData[period].checkOut);
-                    if (period === 'evening' && checkoutMinutes < dayRolloverHour * 60) {
-                        checkoutMinutes += 1440;
-                    }
+                    const checkoutMinutes = getRecordedCheckinMinutes(period, 'checkOut', dayData[period].checkOut);
                     const qualifiedRange = getRule(period, 'checkOut').qualified;
                     dayData[period].status.checkOut = isMinuteInRange(checkoutMinutes, qualifiedRange.start, qualifiedRange.end);
                 } else {
@@ -1778,9 +1823,9 @@
                     const prefix = `rules-${period}-${action === 'checkIn' ? 'checkin' : 'checkout'}`;
                     const rule = getRule(period, action);
                     document.getElementById(`${prefix}-allowed-start`).value = rule.allowed.start;
-                    document.getElementById(`${prefix}-allowed-end`).value = rule.allowed.end === '24:00' ? '23:59' : rule.allowed.end;
+                    document.getElementById(`${prefix}-allowed-end`).value = toTimeInputValue(rule.allowed.end);
                     document.getElementById(`${prefix}-qualified-start`).value = rule.qualified.start;
-                    document.getElementById(`${prefix}-qualified-end`).value = rule.qualified.end === '24:00' ? '23:59' : rule.qualified.end;
+                    document.getElementById(`${prefix}-qualified-end`).value = toTimeInputValue(rule.qualified.end);
                 });
             });
             document.getElementById('rules-day-rollover-hour').value = dayRolloverHour;
@@ -1995,9 +2040,20 @@
             const now = new Date();
             const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' };
             document.getElementById('current-date-time').textContent = now.toLocaleDateString('zh-CN', options);
-            
+
+            const naturalDate = getTodayString();
+            const workDay = getWorkDayString();
+            const shouldRefreshCheckinViews = naturalDate !== lastRenderedNaturalDate || workDay !== lastRenderedWorkDay;
+            lastRenderedNaturalDate = naturalDate;
+            lastRenderedWorkDay = workDay;
+
             // 更新打卡按钮状态
             updateCheckinButtons();
+
+            if (shouldRefreshCheckinViews) {
+                updateTodayCheckinTable();
+                updateTodayStatus();
+            }
         }
         
         // 获取今日日期字符串 (YYYY-MM-DD)
@@ -2846,11 +2902,12 @@
         // 更新打卡按钮状态
         function updateCheckinButtons() {
             const today = getWorkDayString();
-            const currentMinutes = currentTimeToMinutes();
-            const isRollover = new Date().getHours() < dayRolloverHour;
+            ensureDateData(today);
+            const currentMinutes = currentTimeToMinutes({ rolloverAware: true });
+            const dayData = checkinData[today];
 
             // 检查是否请假
-            const isLeave = checkinData[today] && checkinData[today].leave;
+            const isLeave = dayData.leave;
             if (isLeave) {
                 // 如果请假，禁用所有打卡按钮
                 ['morning', 'afternoon', 'evening'].forEach(period => {
@@ -2865,28 +2922,31 @@
             }
             
             // 上午打卡按钮状态
-            const morningCheckin = checkinData[today].morning.checkIn;
-            const morningCheckout = checkinData[today].morning.checkOut;
+            const morningCheckin = dayData.morning.checkIn;
+            const morningCheckout = dayData.morning.checkOut;
+            const morningCheckInAllowed = getEffectiveAllowedRange('morning', 'checkIn');
+            const morningCheckOutAllowed = getEffectiveAllowedRange('morning', 'checkOut');
             
-            document.getElementById('morning-checkin').disabled = morningCheckin !== null || !isMinuteInRange(currentMinutes, getRule('morning', 'checkIn').allowed.start, getRule('morning', 'checkIn').allowed.end, false);
-            document.getElementById('morning-checkout').disabled = morningCheckout !== null || morningCheckin === null || !isMinuteInRange(currentMinutes, getRule('morning', 'checkOut').allowed.start, getRule('morning', 'checkOut').allowed.end, false);
+            document.getElementById('morning-checkin').disabled = morningCheckin !== null || !isMinuteInRange(currentMinutes, morningCheckInAllowed.start, morningCheckInAllowed.end, false);
+            document.getElementById('morning-checkout').disabled = morningCheckout !== null || morningCheckin === null || !isMinuteInRange(currentMinutes, morningCheckOutAllowed.start, morningCheckOutAllowed.end, false);
             
             // 下午打卡按钮状态
-            const afternoonCheckin = checkinData[today].afternoon.checkIn;
-            const afternoonCheckout = checkinData[today].afternoon.checkOut;
+            const afternoonCheckin = dayData.afternoon.checkIn;
+            const afternoonCheckout = dayData.afternoon.checkOut;
+            const afternoonCheckInAllowed = getEffectiveAllowedRange('afternoon', 'checkIn');
+            const afternoonCheckOutAllowed = getEffectiveAllowedRange('afternoon', 'checkOut');
             
-            document.getElementById('afternoon-checkin').disabled = afternoonCheckin !== null || !isMinuteInRange(currentMinutes, getRule('afternoon', 'checkIn').allowed.start, getRule('afternoon', 'checkIn').allowed.end, false);
-            document.getElementById('afternoon-checkout').disabled = afternoonCheckout !== null || afternoonCheckin === null || !isMinuteInRange(currentMinutes, getRule('afternoon', 'checkOut').allowed.start, getRule('afternoon', 'checkOut').allowed.end, false);
+            document.getElementById('afternoon-checkin').disabled = afternoonCheckin !== null || !isMinuteInRange(currentMinutes, afternoonCheckInAllowed.start, afternoonCheckInAllowed.end, false);
+            document.getElementById('afternoon-checkout').disabled = afternoonCheckout !== null || afternoonCheckin === null || !isMinuteInRange(currentMinutes, afternoonCheckOutAllowed.start, afternoonCheckOutAllowed.end, false);
             
             // 晚上打卡按钮状态
-            const eveningCheckin = checkinData[today].evening.checkIn;
-            const eveningCheckout = checkinData[today].evening.checkOut;
+            const eveningCheckin = dayData.evening.checkIn;
+            const eveningCheckout = dayData.evening.checkOut;
+            const eveningCheckInAllowed = getEffectiveAllowedRange('evening', 'checkIn');
+            const eveningCheckOutAllowed = getEffectiveAllowedRange('evening', 'checkOut');
             
-            document.getElementById('evening-checkin').disabled = eveningCheckin !== null || !isMinuteInRange(currentMinutes, getRule('evening', 'checkIn').allowed.start, getRule('evening', 'checkIn').allowed.end, false);
-            // 凌晨滚动窗口内（isRollover=true）仍允许晚上下班打卡
-            const eveningCheckoutInRange = isRollover
-                || isMinuteInRange(currentMinutes, getRule('evening', 'checkOut').allowed.start, getRule('evening', 'checkOut').allowed.end, false);
-            document.getElementById('evening-checkout').disabled = eveningCheckout !== null || eveningCheckin === null || !eveningCheckoutInRange;
+            document.getElementById('evening-checkin').disabled = eveningCheckin !== null || !isMinuteInRange(currentMinutes, eveningCheckInAllowed.start, eveningCheckInAllowed.end, false);
+            document.getElementById('evening-checkout').disabled = eveningCheckout !== null || eveningCheckin === null || !isMinuteInRange(currentMinutes, eveningCheckOutAllowed.start, eveningCheckOutAllowed.end, false);
             
             // 更新按钮样式
             ['morning', 'afternoon', 'evening'].forEach(period => {
@@ -2919,6 +2979,7 @@
         // 上班打卡
         function checkIn(period) {
             const today = getWorkDayString();
+            ensureDateData(today);
             const currentTime = getCurrentTimeString();
 
             // 记录打卡时间
@@ -2948,16 +3009,13 @@
         // 下班打卡
         function checkOut(period) {
             const today = getWorkDayString();
+            ensureDateData(today);
             const currentTime = getCurrentTimeString();
 
             // 记录打卡时间
             checkinData[today][period].checkOut = currentTime;
 
-            // 凌晨滚动窗口内的晚上下班，把实际时间折算为延伸分钟再判合格
-            let checkoutMinutes = timeToMinutes(currentTime);
-            if (period === 'evening' && new Date().getHours() < dayRolloverHour) {
-                checkoutMinutes += 1440;
-            }
+            const checkoutMinutes = getRecordedCheckinMinutes(period, 'checkOut', currentTime);
             const qualifiedRange = getRule(period, 'checkOut').qualified;
             const status = isMinuteInRange(checkoutMinutes, qualifiedRange.start, qualifiedRange.end);
             
@@ -2982,6 +3040,7 @@
         // 更新打卡时间显示
         function updateCheckinTimeDisplay() {
             const today = getWorkDayString();
+            ensureDateData(today);
             
             // 上午打卡时间
             document.getElementById('morning-checkin-time').textContent = `上班: ${checkinData[today].morning.checkIn || '-'}`;
@@ -2999,6 +3058,7 @@
         // 更新今日打卡记录表格
         function updateTodayCheckinTable() {
             const today = getWorkDayString();
+            ensureDateData(today);
             
             // 上午打卡记录
             document.getElementById('table-morning-checkin').textContent = checkinData[today].morning.checkIn || '-';
@@ -3569,7 +3629,7 @@
             updateLeaveRecordsList();
             
             // 如果是今天的请假，更新打卡按钮状态
-            if (date === getTodayString()) {
+            if (date === getWorkDayString()) {
                 updateCheckinButtons();
                 updateTodayStatus();
             }
@@ -3635,7 +3695,7 @@
                 updateLeaveRecordsList();
                 
                 // 如果是今天的请假，更新打卡按钮状态
-                if (date === getTodayString()) {
+                if (date === getWorkDayString()) {
                     updateCheckinButtons();
                     updateTodayStatus();
                 }
@@ -4160,8 +4220,11 @@
         
         // 更新今日状态
         function updateTodayStatus() {
-            const today = getWorkDayString();
-            const dayData = checkinData[today];
+            const workDay = getWorkDayString();
+            const today = getTodayString();
+            ensureDateData(workDay);
+            ensureDateData(today);
+            const dayData = checkinData[workDay];
             
             // 上午打卡状态
             const morningStatus = document.getElementById('today-morning-status');
@@ -4249,7 +4312,6 @@
             }
 
             // 今日专注时长
-            ensureDateData(today);
             document.getElementById('today-focus-duration').textContent = `${focusData[today].totalMinutes} 分钟`;
             updateCatCompanion();
         }
