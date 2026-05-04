@@ -18,6 +18,10 @@
         let sedentaryTimer = null; // 久坐提醒计时器
         let catMessageTimer = null; // 猫咪临时台词计时器
         let catTemporaryMessage = ''; // 猫咪临时台词
+        let focusReminderAudioContext = null; // 专注完成声音提醒
+        let focusReminderSoundTimer = null; // 专注完成声音循环
+        let focusTitleTimer = null; // 专注完成标题闪烁
+        let focusOriginalTitle = ''; // 原始页面标题
         let lastRenderedNaturalDate = null; // 最近一次渲染的自然日
         let lastRenderedWorkDay = null; // 最近一次渲染的工作日
         let lastRenderedMinuteKey = null; // 最近一次渲染的分钟
@@ -130,6 +134,8 @@
         
         // DOM 加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
+            focusOriginalTitle = document.title;
+
             // 初始化数据
             initData();
 
@@ -824,12 +830,22 @@
                 stopFocusSession(false);
             });
 
+            getElement('enable-focus-notifications').addEventListener('click', async function() {
+                await requestFocusNotificationPermission();
+                updateFocusNotificationStatus();
+            });
+
+            getElement('focus-completion-dismiss').addEventListener('click', function() {
+                dismissFocusCompletionReminder();
+            });
+
             document.querySelectorAll('.focus-preset').forEach(button => {
                 button.addEventListener('click', function() {
                     getElement('focus-duration-input').value = this.getAttribute('data-minutes');
                 });
             });
 
+            updateFocusNotificationStatus();
             updateTodayFocusSummary();
             restoreFocusSession();
         }
@@ -885,11 +901,17 @@
             return isPaused ? '已暂停在站立阶段，继续后完成 5 分钟站立倒计时。' : '请起身活动 5 分钟，完成后系统会自动进入下一轮坐下阶段。';
         }
 
-        function requestNotificationPermission() {
-            if (!('Notification' in window)) return;
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) return 'unsupported';
             if (Notification.permission === 'default') {
-                Notification.requestPermission().catch(() => {});
+                try {
+                    return await Notification.requestPermission();
+                } catch (error) {
+                    console.warn('浏览器通知权限请求失败。', error);
+                    return Notification.permission;
+                }
             }
+            return Notification.permission;
         }
 
         function showSedentaryReminder(message) {
@@ -1312,8 +1334,145 @@
             setCatTemporaryMessage(petMessages[Math.floor(Math.random() * petMessages.length)], 2200);
         }
 
-        function requestFocusNotificationPermission() {
-            requestNotificationPermission();
+        async function requestFocusNotificationPermission() {
+            return requestNotificationPermission();
+        }
+
+        function updateFocusNotificationStatus() {
+            const statusElement = getElement('focus-reminder-status');
+            const button = getElement('enable-focus-notifications');
+            if (!statusElement || !button) return;
+
+            if (!('Notification' in window)) {
+                statusElement.textContent = '页面弹窗、声音和标题提醒已开启；当前浏览器不支持桌面通知。';
+                button.textContent = '浏览器不支持';
+                setButtonState(button, false);
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                statusElement.textContent = '页面弹窗、声音、标题提醒和桌面通知均已开启。';
+                button.textContent = '桌面通知已开启';
+                setButtonState(button, false);
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                statusElement.textContent = '页面弹窗、声音和标题提醒已开启；桌面通知已被浏览器拒绝，可在浏览器网站权限中重新允许。';
+                button.textContent = '桌面通知已拒绝';
+                setButtonState(button, false);
+                return;
+            }
+
+            statusElement.textContent = '页面弹窗、声音和标题提醒已开启；桌面通知需要手动授权一次。';
+            button.textContent = '开启桌面通知';
+            setButtonState(button, true);
+        }
+
+        function getFocusAudioContext() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return null;
+
+            if (!focusReminderAudioContext) {
+                focusReminderAudioContext = new AudioContextClass();
+            }
+
+            return focusReminderAudioContext;
+        }
+
+        function primeFocusReminderAudio() {
+            const audioContext = getFocusAudioContext();
+            if (!audioContext || audioContext.state !== 'suspended') return;
+            audioContext.resume().catch(() => {});
+        }
+
+        function playFocusReminderTone() {
+            const audioContext = getFocusAudioContext();
+            if (!audioContext) return;
+
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
+
+            const startTime = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, startTime);
+            oscillator.frequency.setValueAtTime(660, startTime + 0.22);
+            gain.gain.setValueAtTime(0.001, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.55);
+
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.58);
+        }
+
+        function startFocusReminderSound() {
+            stopFocusReminderSound();
+            let playCount = 0;
+            const play = () => {
+                if (playCount >= 5) {
+                    stopFocusReminderSound();
+                    return;
+                }
+                playFocusReminderTone();
+                playCount++;
+            };
+
+            play();
+            focusReminderSoundTimer = setInterval(play, 1600);
+        }
+
+        function stopFocusReminderSound() {
+            if (!focusReminderSoundTimer) return;
+            clearInterval(focusReminderSoundTimer);
+            focusReminderSoundTimer = null;
+        }
+
+        function startFocusTitleReminder() {
+            stopFocusTitleReminder();
+            let showAlertTitle = true;
+            document.title = '专注完成 - 请休息';
+            focusTitleTimer = setInterval(() => {
+                document.title = showAlertTitle ? (focusOriginalTitle || '研究生工位打卡与时间管理系统') : '专注完成 - 请休息';
+                showAlertTitle = !showAlertTitle;
+            }, 1000);
+        }
+
+        function stopFocusTitleReminder() {
+            if (focusTitleTimer) {
+                clearInterval(focusTitleTimer);
+                focusTitleTimer = null;
+            }
+            document.title = focusOriginalTitle || '研究生工位打卡与时间管理系统';
+        }
+
+        function showFocusCompletionPopup(message) {
+            getElement('focus-completion-title').textContent = '专注完成';
+            getElement('focus-completion-message').textContent = message;
+            getElement('focus-completion-popup').classList.remove('hidden');
+        }
+
+        function dismissFocusCompletionReminder() {
+            getElement('focus-completion-popup').classList.add('hidden');
+            stopFocusReminderSound();
+            stopFocusTitleReminder();
+        }
+
+        function showFocusDesktopNotification(message) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            try {
+                new Notification('专注完成', {
+                    body: message,
+                    requireInteraction: true
+                });
+            } catch (error) {
+                console.warn('桌面通知发送失败，已保留页面提醒。', error);
+            }
         }
 
         function startFocusSession() {
@@ -1329,7 +1488,8 @@
                 stopFocusSession(false);
             }
 
-            requestFocusNotificationPermission();
+            dismissFocusCompletionReminder();
+            primeFocusReminderAudio();
 
             const today = getTodayString();
             ensureDateData(today);
@@ -1444,11 +1604,12 @@
         }
 
         function showFocusReminder() {
-            const message = '本次专注计时已完成。';
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('专注完成', { body: message });
-            }
-            alert(message);
+            const message = '本次专注计时已完成，请休息一下。';
+            showFocusCompletionPopup(message);
+            startFocusReminderSound();
+            startFocusTitleReminder();
+            showFocusDesktopNotification(message);
+            updateFocusNotificationStatus();
         }
 
         function completeFocusSession() {

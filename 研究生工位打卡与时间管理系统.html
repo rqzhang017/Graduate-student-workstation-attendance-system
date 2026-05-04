@@ -518,6 +518,17 @@
                                 <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="60">60 分钟</button>
                                 <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="90">90 分钟</button>
                             </div>
+                            <div class="mt-4 bg-white rounded-lg p-4 border border-blue-200">
+                                <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                                    <div>
+                                        <div class="font-medium text-gray-800">专注完成提醒默认开启</div>
+                                        <div id="focus-reminder-status" class="text-sm text-gray-600 mt-1">页面弹窗、声音和标题提醒已开启。</div>
+                                    </div>
+                                    <button id="enable-focus-notifications" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg text-sm font-medium btn-shadow transition-all">
+                                        开启桌面通知
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="bg-blue-50 rounded-lg p-6">
@@ -886,6 +897,20 @@
                 <div class="bg-yellow-400 h-2.5 rounded-full" style="width: 100%"></div>
             </div>
             <p class="text-sm text-gray-500">继续保持，再接再厉！</p>
+        </div>
+    </div>
+
+    <!-- 专注完成提醒 -->
+    <div id="focus-completion-popup" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-80 hidden" style="z-index: 60;">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa fa-bell text-2xl text-white"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2" id="focus-completion-title">专注完成</h3>
+            <p class="text-gray-600 mb-4" id="focus-completion-message">本次专注计时已完成，请休息一下。</p>
+            <button id="focus-completion-dismiss" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                我知道了
+            </button>
         </div>
     </div>
 
