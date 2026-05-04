@@ -2,3 +2,7 @@
 Thumbs.db
 Desktop.ini
 .idea/
+node_modules/
+dist/
+release/
+*.log

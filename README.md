@@ -2,7 +2,9 @@
 
 一个面向研究生、科研工作者和个人工位管理场景的轻量级打卡与时间管理系统。
 
-本项目是纯前端静态应用：无需后端、无需数据库，日常使用时直接打开 HTML 文件即可。数据保存在浏览器 `localStorage` 中，适合个人本地长期使用。
+本项目默认仍是纯前端静态应用：无需后端、无需数据库，日常使用时直接打开 HTML 文件即可。数据保存在浏览器 `localStorage` 中，适合个人本地长期使用。
+
+同时项目已提供 Electron 桌面版入口，用于更可靠的专注完成提醒、系统通知、窗口置顶、任务栏闪烁、托盘后台运行和重复提醒。
 
 ## 界面预览
 
@@ -37,6 +39,54 @@ cd Graduate-student-workstation-attendance-system
 
 也可以直接双击该 HTML 文件运行。日常使用不需要启动服务，也不需要运行 `npm`。
 
+## 浏览器版与桌面版
+
+如果只是记录打卡、任务、专注和统计，可以继续直接打开 HTML 使用浏览器版。浏览器版不需要安装依赖，适合轻量本地使用。
+
+如果你更依赖专注完成提醒，建议使用 Electron 桌面版。桌面版把专注计时的结束提醒交给 Electron 主进程处理，页面最小化或窗口被遮挡时，也能通过系统通知、窗口拉起、任务栏闪烁和托盘重复提醒提高可靠性。
+
+| 使用方式 | 适合场景 | 说明 |
+| --- | --- | --- |
+| 浏览器版 | 轻量记录、直接打开 | 双击 HTML 即可使用，提醒能力受浏览器限制 |
+| 桌面版 | 长时间专注、需要强提醒 | 支持托盘后台、窗口置顶、任务栏闪烁和重复提醒 |
+
+## 桌面版运行
+
+如果需要更可靠的专注提醒，可以使用 Electron 桌面版：
+
+```bash
+npm install
+npm run desktop
+```
+
+桌面版能力：
+
+- 专注开始后由 Electron 主进程调度结束提醒。
+- 到点后触发 Windows 系统通知、显示主窗口、窗口短暂置顶和任务栏闪烁。
+- 关闭窗口时默认隐藏到托盘，专注提醒仍继续运行。
+- 专注完成后会每 60 秒重复系统提醒，直到在主窗口或托盘中确认。
+- 托盘菜单支持打开主界面、查看提醒状态、确认提醒和退出程序。
+
+桌面版使用流程：
+
+1. 进入左侧 `专注时长` 页面。
+2. 设置本次专注倒计时时间。
+3. 点击开始专注。
+4. 时间到后，根据桌面提醒完成确认。
+5. 如需真正退出程序，请右键托盘图标选择退出；直接关闭窗口会隐藏到托盘。
+
+打包 Windows 安装包：
+
+```bash
+npm run build:win
+```
+
+打包完成后会在 `dist/` 目录生成：
+
+- `研究生工位打卡与时间管理系统 Setup x.x.x.exe`：安装版。
+- `研究生工位打卡与时间管理系统 x.x.x.exe`：便携版。
+- `win-unpacked/`：未压缩的 Windows 应用目录。
+
 ## 项目结构
 
 ```text
@@ -46,10 +96,16 @@ cd Graduate-student-workstation-attendance-system
 │   ├── app.js                         # 业务逻辑与交互
 │   ├── app.css                        # 已编译的本地静态样式
 │   └── tailwind-input.css             # Tailwind 源样式，供后续维护时重新编译
+├── electron/
+│   ├── main.cjs                       # Electron 主进程、托盘和系统提醒
+│   ├── preload.cjs                    # 前端与桌面能力的安全桥接
+│   └── icon.png                       # 桌面窗口和托盘图标
 ├── docs/
 │   ├── interface-preview.png          # README 界面预览图
 │   ├── ROADMAP.md
 │   └── CROSS_MIDNIGHT_FIX.md
+├── package.json                       # Electron 开发和打包脚本
+├── package-lock.json                  # npm 依赖锁定
 ├── tailwind.config.cjs                # Tailwind 构建配置
 ├── README.md
 └── LICENSE
@@ -62,6 +118,7 @@ cd Graduate-student-workstation-attendance-system
 - `Tailwind CSS`：样式已编译到 `assets/app.css`，不再依赖运行时 Tailwind CDN。
 - `Chart.js`：统计页首次打开时按需加载，避免影响普通打卡操作。
 - `Font Awesome`：用于基础图标显示。
+- `Electron`：可选桌面壳，用于系统级专注提醒、托盘和窗口控制。
 
 如果后续修改 Tailwind 源样式，可重新生成 CSS：
 

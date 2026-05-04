@@ -22,6 +22,7 @@
         let focusReminderSoundTimer = null; // 专注完成声音循环
         let focusTitleTimer = null; // 专注完成标题闪烁
         let focusOriginalTitle = ''; // 原始页面标题
+        let pendingFocusCompletionReminderId = null; // 等待用户确认的桌面专注提醒
         let lastRenderedNaturalDate = null; // 最近一次渲染的自然日
         let lastRenderedWorkDay = null; // 最近一次渲染的工作日
         let lastRenderedMinuteKey = null; // 最近一次渲染的分钟
@@ -94,6 +95,12 @@
         function isSectionVisible(sectionId) {
             const section = getElement(sectionId);
             return section && !section.classList.contains('hidden');
+        }
+
+        function getDesktopBridge() {
+            return window.attendanceDesktop && window.attendanceDesktop.isAvailable
+                ? window.attendanceDesktop
+                : null;
         }
 
         function setButtonState(button, enabled) {
@@ -839,6 +846,14 @@
                 dismissFocusCompletionReminder();
             });
 
+            const desktopBridge = getDesktopBridge();
+            if (desktopBridge) {
+                desktopBridge.onFocusReminderDue(handleDesktopFocusReminderDue);
+                desktopBridge.onFocusReminderAcknowledged(function(payload) {
+                    dismissFocusCompletionReminder({ skipDesktopAck: true, sessionId: payload && payload.sessionId });
+                });
+            }
+
             document.querySelectorAll('.focus-preset').forEach(button => {
                 button.addEventListener('click', function() {
                     getElement('focus-duration-input').value = this.getAttribute('data-minutes');
@@ -1343,6 +1358,13 @@
             const button = getElement('enable-focus-notifications');
             if (!statusElement || !button) return;
 
+            if (getDesktopBridge()) {
+                statusElement.textContent = '桌面版强提醒已开启：系统通知、窗口置顶、任务栏闪烁和托盘重复提醒将由 Electron 接管。';
+                button.textContent = '桌面强提醒已开启';
+                setButtonState(button, false);
+                return;
+            }
+
             if (!('Notification' in window)) {
                 statusElement.textContent = '页面弹窗、声音和标题提醒已开启；当前浏览器不支持桌面通知。';
                 button.textContent = '浏览器不支持';
@@ -1457,10 +1479,17 @@
             getElement('focus-completion-popup').classList.remove('hidden');
         }
 
-        function dismissFocusCompletionReminder() {
+        function dismissFocusCompletionReminder(options = {}) {
             getElement('focus-completion-popup').classList.add('hidden');
             stopFocusReminderSound();
             stopFocusTitleReminder();
+            const reminderId = options.sessionId || pendingFocusCompletionReminderId;
+            if (!options.skipDesktopAck && reminderId) {
+                acknowledgeDesktopFocusReminder(reminderId);
+            }
+            if (!options.sessionId || options.sessionId === pendingFocusCompletionReminderId) {
+                pendingFocusCompletionReminderId = null;
+            }
         }
 
         function showFocusDesktopNotification(message) {
@@ -1473,6 +1502,44 @@
             } catch (error) {
                 console.warn('桌面通知发送失败，已保留页面提醒。', error);
             }
+        }
+
+        function scheduleDesktopFocusReminder(session) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !session) return;
+
+            desktopBridge.scheduleFocusReminder({
+                id: session.id,
+                plannedMinutes: session.plannedMinutes,
+                startTimestamp: session.startTimestamp,
+                endTimestamp: session.endTimestamp
+            }).catch(error => {
+                console.warn('桌面专注提醒调度失败，将保留网页提醒兜底。', error);
+            });
+        }
+
+        function cancelDesktopFocusReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.cancelFocusReminder(sessionId).catch(error => {
+                console.warn('取消桌面专注提醒失败。', error);
+            });
+        }
+
+        function acknowledgeDesktopFocusReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.acknowledgeFocusReminder(sessionId).catch(error => {
+                console.warn('确认桌面专注提醒失败。', error);
+            });
+        }
+
+        function handleDesktopFocusReminderDue(payload) {
+            if (!currentFocusSession) return;
+            if (payload && payload.sessionId && payload.sessionId !== currentFocusSession.id) return;
+            completeFocusSession('desktop');
         }
 
         function startFocusSession() {
@@ -1503,6 +1570,7 @@
             };
 
             saveData();
+            scheduleDesktopFocusReminder(currentFocusSession);
             startFocusTimer();
             updateTodayStatus();
         }
@@ -1519,6 +1587,7 @@
             }
 
             startFocusTimer();
+            scheduleDesktopFocusReminder(currentFocusSession);
         }
 
         function startFocusTimer() {
@@ -1530,6 +1599,10 @@
                 if (!currentFocusSession) return;
 
                 if (Date.now() >= currentFocusSession.endTimestamp) {
+                    if (getDesktopBridge() && Date.now() - currentFocusSession.endTimestamp < 15000) {
+                        updateFocusTimerDisplay();
+                        return;
+                    }
                     completeFocusSession();
                     return;
                 }
@@ -1567,7 +1640,7 @@
         }
 
         function finalizeFocusSession(completed) {
-            if (!currentFocusSession) return;
+            if (!currentFocusSession) return null;
 
             const session = currentFocusSession;
             const recordedDate = session.date || getTodayString();
@@ -1601,24 +1674,38 @@
             if (!getElement('stats-section').classList.contains('hidden')) {
                 updateStatisticsCharts(getActiveStatsPeriod());
             }
+
+            return session;
         }
 
-        function showFocusReminder() {
+        function showFocusReminder(session) {
             const message = '本次专注计时已完成，请休息一下。';
+            pendingFocusCompletionReminderId = session && session.id ? session.id : null;
             showFocusCompletionPopup(message);
             startFocusReminderSound();
             startFocusTitleReminder();
-            showFocusDesktopNotification(message);
+            if (!getDesktopBridge()) {
+                showFocusDesktopNotification(message);
+            }
             updateFocusNotificationStatus();
         }
 
-        function completeFocusSession() {
-            finalizeFocusSession(true);
-            showFocusReminder();
+        function completeFocusSession(source = 'web') {
+            const session = finalizeFocusSession(true);
+            if (!session) return;
+            showFocusReminder(session);
+            if (source !== 'desktop' && !getDesktopBridge()) {
+                pendingFocusCompletionReminderId = null;
+            }
         }
 
         function stopFocusSession(isCompleted = false) {
-            finalizeFocusSession(isCompleted);
+            const session = finalizeFocusSession(isCompleted);
+            if (!session) return;
+            cancelDesktopFocusReminder(session.id);
+            if (isCompleted) {
+                showFocusReminder(session);
+            }
         }
 
         function updateTodayFocusSummary() {

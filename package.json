@@ -1,0 +1,43 @@
+{
+  "name": "graduate-workstation-attendance-system",
+  "version": "1.1.0",
+  "private": true,
+  "description": "研究生工位打卡与时间管理系统桌面版",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "desktop": "electron .",
+    "start": "electron .",
+    "check": "node --check assets/app.js && node --check electron/main.cjs && node --check electron/preload.cjs",
+    "build:win": "electron-builder --win nsis portable"
+  },
+  "devDependencies": {
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.rqzhang017.graduate-workstation-attendance",
+    "productName": "研究生工位打卡与时间管理系统",
+    "files": [
+      "研究生工位打卡与时间管理系统.html",
+      "assets/**/*",
+      "electron/**/*",
+      "README.md",
+      "LICENSE"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
