@@ -13,11 +13,16 @@ const APP_TITLE = '研究生工位打卡与时间管理系统';
 const APP_USER_MODEL_ID = 'com.rqzhang017.graduate-workstation-attendance';
 const ENTRY_HTML = path.join(__dirname, '..', '研究生工位打卡与时间管理系统.html');
 const ICON_PATH = path.join(__dirname, 'icon.png');
+const CHECKIN_SNOOZE_MS = 5 * 60 * 1000;
 
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let activeFocusReminder = null;
+let activeSedentaryReminder = null;
+let currentCheckinReminderDate = null;
+const checkinReminderStates = new Map();
+const ignoredCheckinReminderIds = new Set();
 
 function getTrayIcon() {
   const image = nativeImage.createFromPath(ICON_PATH);
@@ -67,67 +72,150 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-function bringReminderToFront() {
-  if (!mainWindow) return;
-
-  showMainWindow();
-  mainWindow.flashFrame(true);
-  mainWindow.setAlwaysOnTop(true, 'screen-saver');
-
-  setTimeout(() => {
-    if (!mainWindow || !activeFocusReminder || activeFocusReminder.acknowledged) return;
-    mainWindow.setAlwaysOnTop(false);
-  }, 12000);
-}
-
-function showSystemNotification(title, body) {
-  if (!Notification.isSupported()) {
-    return;
-  }
-
-  const notification = new Notification({
-    title,
-    body,
-    silent: false,
-    timeoutType: 'never'
-  });
-
-  notification.on('click', () => {
-    showMainWindow();
-    bringReminderToFront();
-  });
-
-  notification.show();
-}
-
 function sendToRenderer(channel, payload) {
   if (!mainWindow || mainWindow.webContents.isDestroyed()) return;
   mainWindow.webContents.send(channel, payload);
 }
 
+function navigateToSection(sectionId) {
+  showMainWindow();
+  sendToRenderer('desktop:navigate', { sectionId });
+}
+
+function hasActiveAttentionReminder() {
+  if (activeFocusReminder && activeFocusReminder.isFired) return true;
+  if (activeSedentaryReminder && activeSedentaryReminder.isFired) return true;
+  return Array.from(checkinReminderStates.values()).some(state => state.isFired);
+}
+
+function releaseAttentionIfIdle() {
+  if (!mainWindow || mainWindow.isDestroyed() || hasActiveAttentionReminder()) return;
+  mainWindow.flashFrame(false);
+  mainWindow.setAlwaysOnTop(false);
+}
+
+function flashMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.flashFrame(true);
+}
+
+function bringReminderToFront(sectionId) {
+  if (!mainWindow) return;
+
+  if (sectionId) {
+    navigateToSection(sectionId);
+  } else {
+    showMainWindow();
+  }
+
+  mainWindow.flashFrame(true);
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+
+  setTimeout(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.setAlwaysOnTop(false);
+  }, 12000);
+}
+
+function normalizeNotificationActions(actions = []) {
+  return actions.map(action => ({
+    type: 'button',
+    text: action.text
+  }));
+}
+
+function getActionId(actions, details, deprecatedActionIndex) {
+  const actionIndex = Number.isInteger(details && details.actionIndex)
+    ? details.actionIndex
+    : deprecatedActionIndex;
+  return actions[actionIndex] && actions[actionIndex].id;
+}
+
+function showSystemNotification(options) {
+  if (!Notification.isSupported()) {
+    return null;
+  }
+
+  const actions = Array.isArray(options.actions) ? options.actions : [];
+  let notification = null;
+
+  try {
+    notification = new Notification({
+      title: options.title,
+      body: options.body,
+      silent: false,
+      timeoutType: options.timeoutType || 'never',
+      actions: normalizeNotificationActions(actions)
+    });
+  } catch (error) {
+    console.warn('带按钮的系统通知创建失败，已退回普通通知。', error);
+    notification = new Notification({
+      title: options.title,
+      body: options.body,
+      silent: false,
+      timeoutType: options.timeoutType || 'never'
+    });
+  }
+
+  notification.on('click', () => {
+    if (typeof options.onClick === 'function') {
+      options.onClick();
+    }
+  });
+
+  notification.on('action', (event, deprecatedActionIndex) => {
+    const actionId = getActionId(actions, event, deprecatedActionIndex);
+    if (actionId && typeof options.onAction === 'function') {
+      options.onAction(actionId);
+    }
+  });
+
+  notification.show();
+  return notification;
+}
+
+function clearReminderTimers(reminder) {
+  if (!reminder) return;
+
+  if (reminder.timer) {
+    clearTimeout(reminder.timer);
+  }
+}
+
 function clearActiveFocusReminder(options = {}) {
   if (!activeFocusReminder) return;
 
-  if (activeFocusReminder.timer) {
-    clearTimeout(activeFocusReminder.timer);
-  }
-
-  if (activeFocusReminder.repeatTimer) {
-    clearInterval(activeFocusReminder.repeatTimer);
-  }
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.flashFrame(false);
-    mainWindow.setAlwaysOnTop(false);
-  }
-
+  clearReminderTimers(activeFocusReminder);
   const acknowledgedSessionId = activeFocusReminder.id;
   activeFocusReminder = null;
   updateTrayMenu();
+  releaseAttentionIfIdle();
 
   if (options.notifyRenderer) {
     sendToRenderer('focus-reminder:acknowledged', { sessionId: acknowledgedSessionId });
   }
+}
+
+function handleFocusNotificationAction(actionId) {
+  if (actionId === 'ack') {
+    acknowledgeFocusReminder(activeFocusReminder && activeFocusReminder.id);
+    return;
+  }
+
+  bringReminderToFront('focus-section');
+}
+
+function showFocusNotification(payload) {
+  showSystemNotification({
+    title: payload.title,
+    body: payload.message,
+    actions: [
+      { id: 'open', text: '打开' },
+      { id: 'ack', text: '我知道了' }
+    ],
+    onClick: () => handleFocusNotificationAction('open'),
+    onAction: handleFocusNotificationAction
+  });
 }
 
 function fireFocusReminder() {
@@ -141,17 +229,10 @@ function fireFocusReminder() {
     message: '本次专注计时已完成，请休息一下。'
   };
 
-  showSystemNotification(payload.title, payload.message);
-  bringReminderToFront();
+  activeFocusReminder.isFired = true;
+  showFocusNotification(payload);
+  bringReminderToFront('focus-section');
   sendToRenderer('focus-reminder:due', payload);
-
-  if (!activeFocusReminder.repeatTimer) {
-    activeFocusReminder.repeatTimer = setInterval(() => {
-      if (!activeFocusReminder || activeFocusReminder.acknowledged) return;
-      showSystemNotification(payload.title, `${payload.message} 点击主窗口中的“我知道了”结束提醒。`);
-      bringReminderToFront();
-    }, 60000);
-  }
 
   updateTrayMenu();
 }
@@ -169,8 +250,8 @@ function scheduleFocusReminder(session) {
     plannedMinutes: session.plannedMinutes || 0,
     endTimestamp: session.endTimestamp,
     acknowledged: false,
-    timer: setTimeout(fireFocusReminder, remainingMs),
-    repeatTimer: null
+    isFired: false,
+    timer: setTimeout(fireFocusReminder, remainingMs)
   };
 
   updateTrayMenu();
@@ -191,21 +272,297 @@ function acknowledgeFocusReminder(sessionId) {
   return { ok: true };
 }
 
+function getSedentaryPayload() {
+  if (!activeSedentaryReminder) return null;
+
+  if (activeSedentaryReminder.phase === 'sit') {
+    return {
+      sessionId: activeSedentaryReminder.id,
+      phase: activeSedentaryReminder.phase,
+      cycleCount: activeSedentaryReminder.cycleCount,
+      endTimestamp: activeSedentaryReminder.endTimestamp,
+      title: '久坐提醒',
+      message: '坐下 45 分钟已完成，请现在起身活动 5 分钟。'
+    };
+  }
+
+  return {
+    sessionId: activeSedentaryReminder.id,
+    phase: activeSedentaryReminder.phase,
+    cycleCount: activeSedentaryReminder.cycleCount,
+    endTimestamp: activeSedentaryReminder.endTimestamp,
+    title: '站立完成',
+    message: '本轮站立 5 分钟已完成，可以开始下一轮坐下计时。'
+  };
+}
+
+function clearActiveSedentaryReminder(options = {}) {
+  if (!activeSedentaryReminder) return;
+
+  clearReminderTimers(activeSedentaryReminder);
+  const acknowledgedSessionId = activeSedentaryReminder.id;
+  activeSedentaryReminder = null;
+  updateTrayMenu();
+  releaseAttentionIfIdle();
+
+  if (options.notifyRenderer) {
+    sendToRenderer('sedentary-reminder:acknowledged', { sessionId: acknowledgedSessionId });
+  }
+}
+
+function handleSedentaryNotificationAction(actionId) {
+  if (actionId === 'ack') {
+    acknowledgeSedentaryReminder(activeSedentaryReminder && activeSedentaryReminder.id);
+    return;
+  }
+
+  bringReminderToFront('sedentary-section');
+}
+
+function showSedentaryNotification(payload) {
+  showSystemNotification({
+    title: payload.title,
+    body: payload.message,
+    actions: [
+      { id: 'open', text: '打开' },
+      { id: 'ack', text: '我知道了' }
+    ],
+    onClick: () => handleSedentaryNotificationAction('open'),
+    onAction: handleSedentaryNotificationAction
+  });
+}
+
+function fireSedentaryReminder() {
+  if (!activeSedentaryReminder || activeSedentaryReminder.acknowledged) return;
+
+  const payload = getSedentaryPayload();
+  if (!payload) return;
+
+  activeSedentaryReminder.isFired = true;
+  showSedentaryNotification(payload);
+  bringReminderToFront('sedentary-section');
+  sendToRenderer('sedentary-reminder:due', payload);
+
+  updateTrayMenu();
+}
+
+function scheduleSedentaryReminder(session) {
+  if (!session || !session.id || !Number.isFinite(session.endTimestamp)) {
+    return { ok: false, reason: 'invalid-session' };
+  }
+
+  clearActiveSedentaryReminder();
+
+  if (session.isPaused) {
+    updateTrayMenu();
+    return { ok: true, reason: 'paused' };
+  }
+
+  const remainingMs = Math.max(0, session.endTimestamp - Date.now());
+  activeSedentaryReminder = {
+    id: session.id,
+    phase: session.phase,
+    cycleCount: session.cycleCount || 1,
+    endTimestamp: session.endTimestamp,
+    acknowledged: false,
+    isFired: false,
+    timer: setTimeout(fireSedentaryReminder, remainingMs)
+  };
+
+  updateTrayMenu();
+  return { ok: true, dueInMs: remainingMs };
+}
+
+function acknowledgeSedentaryReminder(sessionId) {
+  if (!activeSedentaryReminder) {
+    return { ok: true, reason: 'no-active-reminder' };
+  }
+
+  if (sessionId && activeSedentaryReminder.id !== sessionId) {
+    return { ok: false, reason: 'session-mismatch' };
+  }
+
+  activeSedentaryReminder.acknowledged = true;
+  clearActiveSedentaryReminder({ notifyRenderer: true });
+  return { ok: true };
+}
+
+function clearCheckinReminder(id, options = {}) {
+  const state = checkinReminderStates.get(id);
+  if (!state) return;
+
+  clearReminderTimers(state);
+  checkinReminderStates.delete(id);
+
+  if (options.ignore) {
+    ignoredCheckinReminderIds.add(id);
+  }
+
+  updateTrayMenu();
+  releaseAttentionIfIdle();
+}
+
+function clearAllCheckinReminders() {
+  Array.from(checkinReminderStates.keys()).forEach(id => clearCheckinReminder(id));
+}
+
+function handleCheckinNotificationAction(actionId, reminderId) {
+  const state = checkinReminderStates.get(reminderId);
+  if (!state) return;
+
+  if (actionId === 'snooze') {
+    const snoozedUntil = Date.now() + CHECKIN_SNOOZE_MS;
+    const nextPayload = {
+      ...state.payload,
+      targetTimestamp: snoozedUntil
+    };
+    clearCheckinReminder(reminderId);
+    scheduleCheckinReminder(nextPayload, { snoozedUntil });
+    return;
+  }
+
+  if (actionId === 'dismiss') {
+    clearCheckinReminder(reminderId, { ignore: true });
+    return;
+  }
+
+  navigateToSection('checkin-section');
+}
+
+function showCheckinNotification(state) {
+  const payload = state.payload;
+  showSystemNotification({
+    title: payload.title || '打卡提醒',
+    body: payload.message,
+    actions: [
+      { id: 'open', text: '去打卡' },
+      { id: 'snooze', text: '5分钟后' },
+      { id: 'dismiss', text: '忽略本次' }
+    ],
+    onClick: () => handleCheckinNotificationAction('open', payload.id),
+    onAction: actionId => handleCheckinNotificationAction(actionId, payload.id)
+  });
+}
+
+function fireCheckinReminder(id) {
+  const state = checkinReminderStates.get(id);
+  if (!state || ignoredCheckinReminderIds.has(id)) return;
+
+  state.isFired = true;
+  state.snoozedUntil = null;
+  showCheckinNotification(state);
+  flashMainWindow();
+
+  updateTrayMenu();
+}
+
+function scheduleCheckinReminder(reminder, options = {}) {
+  if (!reminder || !reminder.id || !Number.isFinite(reminder.targetTimestamp)) return;
+  if (ignoredCheckinReminderIds.has(reminder.id)) return;
+
+  clearCheckinReminder(reminder.id);
+  const remainingMs = Math.max(0, reminder.targetTimestamp - Date.now());
+
+  checkinReminderStates.set(reminder.id, {
+    payload: reminder,
+    targetTimestamp: reminder.targetTimestamp,
+    snoozedUntil: options.snoozedUntil || null,
+    isFired: false,
+    timer: setTimeout(() => fireCheckinReminder(reminder.id), remainingMs)
+  });
+}
+
+function syncCheckinReminders(payload = {}) {
+  const date = payload.date || null;
+  const reminders = Array.isArray(payload.reminders) ? payload.reminders : [];
+
+  if (date && date !== currentCheckinReminderDate) {
+    currentCheckinReminderDate = date;
+    ignoredCheckinReminderIds.clear();
+  }
+
+  const incomingIds = new Set(reminders.map(reminder => reminder.id).filter(Boolean));
+  Array.from(checkinReminderStates.keys()).forEach(id => {
+    if (!incomingIds.has(id)) {
+      clearCheckinReminder(id);
+    }
+  });
+
+  reminders.forEach(reminder => {
+    if (!reminder || !reminder.id || ignoredCheckinReminderIds.has(reminder.id)) return;
+
+    const existing = checkinReminderStates.get(reminder.id);
+    if (existing && existing.snoozedUntil && existing.snoozedUntil > Date.now()) {
+      existing.payload = {
+        ...reminder,
+        targetTimestamp: existing.targetTimestamp
+      };
+      return;
+    }
+
+    if (existing && existing.isFired) {
+      existing.payload = reminder;
+      return;
+    }
+
+    if (existing && existing.targetTimestamp === reminder.targetTimestamp) {
+      existing.payload = reminder;
+      return;
+    }
+
+    scheduleCheckinReminder(reminder);
+  });
+
+  updateTrayMenu();
+  return { ok: true, count: checkinReminderStates.size };
+}
+
+function getReminderTimeLabel(timestamp) {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 function updateTrayMenu() {
   if (!tray) return;
 
-  const reminderLabel = activeFocusReminder
-    ? `专注提醒：${new Date(activeFocusReminder.endTimestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+  const focusLabel = activeFocusReminder
+    ? `专注提醒：${getReminderTimeLabel(activeFocusReminder.endTimestamp)}`
     : '专注提醒：未运行';
 
-  tray.setToolTip(activeFocusReminder ? `${APP_TITLE} - ${reminderLabel}` : APP_TITLE);
+  const sedentaryLabel = activeSedentaryReminder
+    ? `久坐提醒：${getReminderTimeLabel(activeSedentaryReminder.endTimestamp)}`
+    : '久坐提醒：未运行';
+
+  const activeCheckinCount = Array.from(checkinReminderStates.values()).filter(state => state.isFired).length;
+  const checkinLabel = activeCheckinCount > 0
+    ? `打卡提醒：${activeCheckinCount} 个待处理`
+    : `打卡提醒：已调度 ${checkinReminderStates.size} 个`;
+
+  tray.setToolTip(`${APP_TITLE} - ${focusLabel}，${sedentaryLabel}，${checkinLabel}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '打开主界面', click: showMainWindow },
-    { label: reminderLabel, enabled: false },
+    { type: 'separator' },
+    { label: focusLabel, enabled: false },
     {
       label: '确认当前专注提醒',
       enabled: Boolean(activeFocusReminder),
       click: () => acknowledgeFocusReminder(activeFocusReminder && activeFocusReminder.id)
+    },
+    { type: 'separator' },
+    { label: sedentaryLabel, enabled: false },
+    {
+      label: '确认当前久坐提醒',
+      enabled: Boolean(activeSedentaryReminder),
+      click: () => acknowledgeSedentaryReminder(activeSedentaryReminder && activeSedentaryReminder.id)
+    },
+    { type: 'separator' },
+    { label: checkinLabel, enabled: false },
+    {
+      label: '清除当前打卡提醒',
+      enabled: activeCheckinCount > 0,
+      click: clearAllCheckinReminders
     },
     { type: 'separator' },
     {
@@ -235,6 +592,24 @@ function registerIpcHandlers() {
     return { ok: true };
   });
   ipcMain.handle('focus-reminder:acknowledge', (_event, payload = {}) => acknowledgeFocusReminder(payload.sessionId));
+
+  ipcMain.handle('sedentary-reminder:schedule', (_event, session) => scheduleSedentaryReminder(session));
+  ipcMain.handle('sedentary-reminder:cancel', (_event, payload = {}) => {
+    if (!activeSedentaryReminder) return { ok: true };
+    if (payload.sessionId && activeSedentaryReminder.id !== payload.sessionId) {
+      return { ok: false, reason: 'session-mismatch' };
+    }
+    clearActiveSedentaryReminder();
+    return { ok: true };
+  });
+  ipcMain.handle('sedentary-reminder:acknowledge', (_event, payload = {}) => acknowledgeSedentaryReminder(payload.sessionId));
+
+  ipcMain.handle('checkin-reminder:sync', (_event, payload = {}) => syncCheckinReminders(payload));
+  ipcMain.handle('checkin-reminder:clear', () => {
+    clearAllCheckinReminders();
+    return { ok: true };
+  });
+
   ipcMain.handle('window:show', () => {
     showMainWindow();
     return { ok: true };
@@ -261,6 +636,8 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   clearActiveFocusReminder();
+  clearActiveSedentaryReminder();
+  clearAllCheckinReminders();
 });
 
 app.on('window-all-closed', () => {});

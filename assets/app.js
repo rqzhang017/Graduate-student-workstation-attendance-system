@@ -37,7 +37,10 @@
 
         const SEDENTARY_SIT_MINUTES = 45;
         const SEDENTARY_STAND_MINUTES = 5;
+        const CHECKIN_REMINDER_LEAD_MINUTES = 10;
         const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js';
+        const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
+        const NAV_BUTTON_IDS = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
         
         const STORAGE_KEYS = {
             appState: 'phdWorkstationAppState',
@@ -723,6 +726,15 @@
             return formatLocalDate(now);
         }
 
+        function getDateStartTimestamp(dateString) {
+            const date = parseStoredDate(dateString);
+            return date ? date.getTime() : Date.now();
+        }
+
+        function workDayMinutesToTimestamp(dateString, totalMinutes) {
+            return getDateStartTimestamp(dateString) + totalMinutes * 60 * 1000;
+        }
+
         // 获取当前时间字符串 (HH:MM)
         function getCurrentTimeString() {
             const now = new Date();
@@ -737,41 +749,50 @@
         
         // 初始化导航切换
         function initNavigation() {
-            const sections = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
-            const navButtons = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
-            
-            navButtons.forEach((btnId, index) => {
+            NAV_BUTTON_IDS.forEach((btnId, index) => {
                 getElement(btnId).addEventListener('click', function() {
-                    // 隐藏所有section
-                    sections.forEach(sectionId => {
-                        getElement(sectionId).classList.add('hidden');
-                    });
-                    
-                    // 显示当前section
-                    getElement(sections[index]).classList.remove('hidden');
-                    
-                    // 更新导航按钮样式
-                    navButtons.forEach(id => {
-                        const btn = getElement(id);
-                        btn.classList.remove('bg-primary', 'text-white');
-                        btn.classList.add('hover:bg-gray-100');
-                    });
-                    
-                    const currentBtn = getElement(btnId);
-                    currentBtn.classList.add('bg-primary', 'text-white');
-                    currentBtn.classList.remove('hover:bg-gray-100');
-                    
-                    // 如果切换到统计页面，更新图表
-                    if (sections[index] === 'stats-section') {
-                        updateSummaryStatistics();
-                        updateStatisticsCharts(getActiveStatsPeriod());
-                    } else if (sections[index] === 'rules-section') {
-                        renderRulesForm();
-                    } else if (sections[index] === 'sedentary-section') {
-                        updateSedentaryDisplay();
-                    }
+                    showSection(NAV_SECTION_IDS[index]);
                 });
             });
+
+            const desktopBridge = getDesktopBridge();
+            if (desktopBridge) {
+                desktopBridge.onNavigate(function(payload) {
+                    if (payload && payload.sectionId) {
+                        showSection(payload.sectionId);
+                    }
+                });
+            }
+        }
+
+        function showSection(sectionId) {
+            const activeIndex = NAV_SECTION_IDS.indexOf(sectionId);
+            if (activeIndex === -1) return;
+
+            NAV_SECTION_IDS.forEach(id => {
+                getElement(id).classList.add('hidden');
+            });
+
+            getElement(sectionId).classList.remove('hidden');
+
+            NAV_BUTTON_IDS.forEach(id => {
+                const btn = getElement(id);
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('hover:bg-gray-100');
+            });
+
+            const currentBtn = getElement(NAV_BUTTON_IDS[activeIndex]);
+            currentBtn.classList.add('bg-primary', 'text-white');
+            currentBtn.classList.remove('hover:bg-gray-100');
+
+            if (sectionId === 'stats-section') {
+                updateSummaryStatistics();
+                updateStatisticsCharts(getActiveStatsPeriod());
+            } else if (sectionId === 'rules-section') {
+                renderRulesForm();
+            } else if (sectionId === 'sedentary-section') {
+                updateSedentaryDisplay();
+            }
         }
 
         function initRuleSettings() {
@@ -882,6 +903,16 @@
                 stopSedentaryCycle();
             });
 
+            const desktopBridge = getDesktopBridge();
+            if (desktopBridge) {
+                desktopBridge.onSedentaryReminderDue(handleDesktopSedentaryReminderDue);
+                desktopBridge.onSedentaryReminderAcknowledged(function(payload) {
+                    if (payload && payload.sessionId) {
+                        updateSedentaryDisplay();
+                    }
+                });
+            }
+
             updateSedentaryDisplay();
             restoreSedentarySession();
         }
@@ -956,17 +987,20 @@
             ensureDateData(today);
             currentSedentarySession = createSedentarySession('sit', 1, today, Date.now());
             saveData();
+            scheduleDesktopSedentaryReminder(currentSedentarySession);
             startSedentaryTimer();
         }
 
         function pauseSedentaryCycle() {
             if (!currentSedentarySession || currentSedentarySession.isPaused) return;
 
+            const sessionId = getSedentaryDesktopReminderId(currentSedentarySession);
             currentSedentarySession.remainingMs = Math.max(currentSedentarySession.endTimestamp - Date.now(), 0);
             currentSedentarySession.isPaused = true;
 
             setTickHandler('sedentary', null);
             sedentaryTimer = null;
+            cancelDesktopSedentaryReminder(sessionId);
 
             saveData();
             updateSedentaryDisplay();
@@ -983,6 +1017,7 @@
             currentSedentarySession.remainingMs = remainingMs;
 
             saveData();
+            scheduleDesktopSedentaryReminder(currentSedentarySession);
             startSedentaryTimer();
         }
 
@@ -1000,6 +1035,7 @@
             setTickHandler('sedentary', null);
             sedentaryTimer = null;
 
+            cancelDesktopSedentaryReminder(getSedentaryDesktopReminderId(currentSedentarySession));
             currentSedentarySession = null;
             saveData();
             updateSedentaryDisplay();
@@ -1016,6 +1052,7 @@
             }
 
             if (currentSedentarySession.isPaused) {
+                cancelDesktopSedentaryReminder(getSedentaryDesktopReminderId(currentSedentarySession));
                 updateSedentaryDisplay();
                 return;
             }
@@ -1033,6 +1070,7 @@
             }
 
             startSedentaryTimer();
+            scheduleDesktopSedentaryReminder(currentSedentarySession);
         }
 
         function startSedentaryTimer() {
@@ -1043,6 +1081,10 @@
                 if (!currentSedentarySession || currentSedentarySession.isPaused) return;
 
                 if (Date.now() >= currentSedentarySession.endTimestamp) {
+                    if (getDesktopBridge() && Date.now() - currentSedentarySession.endTimestamp < 15000) {
+                        updateSedentaryDisplay();
+                        return;
+                    }
                     advanceSedentaryPhase();
                     return;
                 }
@@ -1090,6 +1132,7 @@
             updateSedentaryDisplay();
 
             if (currentSedentarySession && !currentSedentarySession.isPaused) {
+                scheduleDesktopSedentaryReminder(currentSedentarySession);
                 startSedentaryTimer();
             }
         }
@@ -1536,6 +1579,51 @@
             });
         }
 
+        function getSedentaryDesktopReminderId(session) {
+            if (!session) return null;
+            return `sedentary_${session.date}_${session.cycleCount}_${session.phase}_${session.endTimestamp}`;
+        }
+
+        function scheduleDesktopSedentaryReminder(session) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !session) return;
+
+            desktopBridge.scheduleSedentaryReminder({
+                id: getSedentaryDesktopReminderId(session),
+                phase: session.phase,
+                cycleCount: session.cycleCount,
+                endTimestamp: session.endTimestamp,
+                isPaused: session.isPaused
+            }).catch(error => {
+                console.warn('桌面久坐提醒调度失败，将保留网页提醒兜底。', error);
+            });
+        }
+
+        function cancelDesktopSedentaryReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.cancelSedentaryReminder(sessionId).catch(error => {
+                console.warn('取消桌面久坐提醒失败。', error);
+            });
+        }
+
+        function acknowledgeDesktopSedentaryReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.acknowledgeSedentaryReminder(sessionId).catch(error => {
+                console.warn('确认桌面久坐提醒失败。', error);
+            });
+        }
+
+        function handleDesktopSedentaryReminderDue(payload) {
+            if (!currentSedentarySession) return;
+            const sessionId = getSedentaryDesktopReminderId(currentSedentarySession);
+            if (payload && payload.sessionId && payload.sessionId !== sessionId) return;
+            advanceSedentaryPhase({ notify: false, source: 'desktop' });
+        }
+
         function handleDesktopFocusReminderDue(payload) {
             if (!currentFocusSession) return;
             if (payload && payload.sessionId && payload.sessionId !== currentFocusSession.id) return;
@@ -1737,6 +1825,84 @@
             });
         }
         
+        function getCheckinReminderTargetMinutes(period, action) {
+            const qualifiedRange = getRule(period, action).qualified;
+            const allowedRange = getEffectiveAllowedRange(period, action);
+            const qualifiedStart = timeToMinutes(qualifiedRange.start);
+            const qualifiedEnd = timeToMinutes(qualifiedRange.end);
+            const allowedStart = timeToMinutes(allowedRange.start);
+            const allowedEnd = timeToMinutes(allowedRange.end);
+            let targetMinutes = Math.max(qualifiedStart, qualifiedEnd - CHECKIN_REMINDER_LEAD_MINUTES);
+
+            targetMinutes = Math.max(targetMinutes, allowedStart);
+            if (targetMinutes >= allowedEnd) {
+                targetMinutes = Math.max(allowedStart, allowedEnd - CHECKIN_REMINDER_LEAD_MINUTES);
+            }
+
+            return targetMinutes;
+        }
+
+        function buildDesktopCheckinReminderPlans() {
+            const workDay = getWorkDayString();
+            ensureDateData(workDay);
+
+            const dayData = checkinData[workDay];
+            if (!dayData || dayData.leave) {
+                return { date: workDay, reminders: [] };
+            }
+
+            const reminders = [];
+            const now = Date.now();
+            const currentMinutes = currentTimeToMinutes({ rolloverAware: true });
+
+            ['morning', 'afternoon', 'evening'].forEach(period => {
+                ['checkIn', 'checkOut'].forEach(action => {
+                    const periodData = dayData[period];
+                    const isCheckIn = action === 'checkIn';
+                    const alreadyDone = isCheckIn ? periodData.checkIn !== null : periodData.checkOut !== null;
+                    const prerequisiteMissing = !isCheckIn && periodData.checkIn === null;
+                    if (alreadyDone || prerequisiteMissing) return;
+
+                    const allowedRange = getEffectiveAllowedRange(period, action);
+                    const allowedEndMinutes = timeToMinutes(allowedRange.end);
+                    if (currentMinutes >= allowedEndMinutes) return;
+
+                    const targetMinutes = getCheckinReminderTargetMinutes(period, action);
+                    const allowedEndTimestamp = workDayMinutesToTimestamp(workDay, allowedEndMinutes);
+                    let targetTimestamp = workDayMinutesToTimestamp(workDay, targetMinutes);
+
+                    if (targetTimestamp <= now && now < allowedEndTimestamp) {
+                        targetTimestamp = now + 2000;
+                    }
+
+                    if (targetTimestamp >= allowedEndTimestamp) return;
+
+                    const periodLabel = PERIOD_LABELS[period];
+                    const actionLabel = ACTION_LABELS[action];
+                    reminders.push({
+                        id: `${workDay}_${period}_${action}`,
+                        date: workDay,
+                        period,
+                        action,
+                        targetTimestamp,
+                        title: `${periodLabel}${actionLabel}打卡提醒`,
+                        message: `现在需要处理${periodLabel}${actionLabel}打卡，合格窗口：${formatRuleRange(getRule(period, action).qualified)}。`
+                    });
+                });
+            });
+
+            return { date: workDay, reminders };
+        }
+
+        function syncDesktopCheckinReminders() {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || typeof desktopBridge.syncCheckinReminders !== 'function') return;
+
+            desktopBridge.syncCheckinReminders(buildDesktopCheckinReminderPlans()).catch(error => {
+                console.warn('同步桌面打卡提醒失败。', error);
+            });
+        }
+
         // 初始化打卡功能
         function initCheckin() {
             // 上午打卡
@@ -1789,6 +1955,7 @@
                     setButtonState(getElement(`${period}-checkin`), false);
                     setButtonState(getElement(`${period}-checkout`), false);
                 });
+                syncDesktopCheckinReminders();
                 return;
             }
 
@@ -1802,6 +1969,8 @@
                 setButtonState(getElement(`${period}-checkin`), canCheckIn);
                 setButtonState(getElement(`${period}-checkout`), canCheckOut);
             });
+
+            syncDesktopCheckinReminders();
             
             // 更新打卡时间显示
             updateCheckinTimeDisplay();

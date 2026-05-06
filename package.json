@@ -8,7 +8,8 @@
     "desktop": "electron .",
     "start": "electron .",
     "check": "node --check assets/app.js && node --check electron/main.cjs && node --check electron/preload.cjs",
-    "build:win": "electron-builder --win nsis portable"
+    "build:win": "electron-builder --win nsis --publish never",
+    "build:win:portable": "electron-builder --win portable --publish never"
   },
   "devDependencies": {
     "electron": "^41.5.0",
@@ -29,8 +30,7 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "nsis": {
