@@ -111,9 +111,14 @@
             <main class="min-w-0">
                 <!-- 打卡记录模块 -->
                 <section id="checkin-section" class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                        <i class="fa fa-clock-o mr-2 text-primary"></i>打卡记录
-                    </h2>
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fa fa-clock-o mr-2 text-primary"></i>打卡记录
+                        </h2>
+                        <button id="open-manual-checkin" class="bg-white border text-primary hover:bg-gray-100 py-2 px-5 rounded-lg font-medium transition-all" style="border-color: #1d4ed8;">
+                            <i class="fa fa-pencil-square-o mr-2"></i>手动补卡
+                        </button>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- 上午打卡 -->
@@ -911,6 +916,70 @@
             <button id="focus-completion-dismiss" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
                 我知道了
             </button>
+        </div>
+    </div>
+
+    <!-- 手动补卡弹窗 -->
+    <div id="manual-checkin-modal" class="fixed inset-0 hidden items-center justify-center px-4" style="z-index: 70; background: rgba(0, 0, 0, 0.4);">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full" style="max-width: 42rem;">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">手动补卡 / 修正打卡</h3>
+                    <p class="text-sm text-gray-500 mt-1">用于忘记点击打卡时补录实际发生时间，系统会按指定时间重新判断合格状态。</p>
+                </div>
+                <button id="close-manual-checkin" class="text-gray-500 hover:bg-gray-100 text-xl" aria-label="关闭补卡弹窗">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="text-sm text-gray-700 font-medium">
+                    工作日日期
+                    <input id="manual-checkin-date" type="date" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    实际打卡时间
+                    <input id="manual-checkin-time" type="time" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    打卡时段
+                    <select id="manual-checkin-period" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="morning">上午</option>
+                        <option value="afternoon">下午</option>
+                        <option value="evening">晚上</option>
+                    </select>
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    打卡类型
+                    <select id="manual-checkin-action" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="checkIn">上班</option>
+                        <option value="checkOut">下班</option>
+                    </select>
+                </label>
+            </div>
+
+            <label id="manual-checkin-next-day-wrap" class="mt-4 hidden items-start gap-2 text-sm text-gray-600">
+                <input id="manual-checkin-next-day" type="checkbox" class="mt-1">
+                <span>这是所选工作日的次日凌晨下班时间。例如工作日选 2026-05-06、时间填 00:30，会记入 2026-05-06 的晚上下班。</span>
+            </label>
+
+            <label class="block mt-4 text-sm text-gray-700 font-medium">
+                补卡原因
+                <textarea id="manual-checkin-reason" rows="3" placeholder="例如：下班时忘记点击打卡" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+            </label>
+
+            <div id="manual-checkin-preview" class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+                选择日期、时段、类型和时间后预览补卡结果。
+            </div>
+
+            <div class="mt-6 flex flex-col md:flex-row justify-end gap-3">
+                <button id="cancel-manual-checkin" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-5 rounded-lg font-medium transition-all">
+                    取消
+                </button>
+                <button id="save-manual-checkin" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all">
+                    保存补卡
+                </button>
+            </div>
         </div>
     </div>
 

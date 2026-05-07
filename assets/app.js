@@ -71,6 +71,9 @@
             checkOut: '下班'
         };
 
+        const CHECKIN_PERIODS = ['morning', 'afternoon', 'evening'];
+        const CHECKIN_ACTIONS = ['checkIn', 'checkOut'];
+
         function getElement(id) {
             if (!domCache.has(id)) {
                 domCache.set(id, document.getElementById(id));
@@ -207,6 +210,15 @@
                 console.warn('本地数据解析失败，已使用默认值。', error);
                 return fallbackValue;
             }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
         
         function formatLocalDate(date) {
@@ -352,6 +364,18 @@
             return minutes;
         }
 
+        function getCheckinStatusFor(period, action, timeString) {
+            if (!timeString) return null;
+
+            if (action === 'checkOut') {
+                const recordedMinutes = getRecordedCheckinMinutes(period, action, timeString);
+                const qualifiedRange = getRule(period, action).qualified;
+                return isMinuteInRange(recordedMinutes, qualifiedRange.start, qualifiedRange.end);
+            }
+
+            return isTimeStringInRange(timeString, getRule(period, action).qualified);
+        }
+
         function formatDisplayTime(timeString) {
             const totalMinutes = timeToMinutes(timeString);
             if (totalMinutes === 1440) {
@@ -386,15 +410,13 @@
 
             ['morning', 'afternoon', 'evening'].forEach(period => {
                 if (dayData[period].checkIn) {
-                    dayData[period].status.checkIn = isTimeStringInRange(dayData[period].checkIn, getRule(period, 'checkIn').qualified);
+                    dayData[period].status.checkIn = getCheckinStatusFor(period, 'checkIn', dayData[period].checkIn);
                 } else {
                     dayData[period].status.checkIn = null;
                 }
 
                 if (dayData[period].checkOut) {
-                    const checkoutMinutes = getRecordedCheckinMinutes(period, 'checkOut', dayData[period].checkOut);
-                    const qualifiedRange = getRule(period, 'checkOut').qualified;
-                    dayData[period].status.checkOut = isMinuteInRange(checkoutMinutes, qualifiedRange.start, qualifiedRange.end);
+                    dayData[period].status.checkOut = getCheckinStatusFor(period, 'checkOut', dayData[period].checkOut);
                 } else {
                     dayData[period].status.checkOut = null;
                 }
@@ -475,15 +497,75 @@
                 morning: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
                 afternoon: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
                 evening: { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } },
+                meta: {
+                    morning: { checkIn: null, checkOut: null },
+                    afternoon: { checkIn: null, checkOut: null },
+                    evening: { checkIn: null, checkOut: null }
+                },
                 leave: false,
                 leaveReason: ''
             };
         }
-        
-        function ensureDateData(date) {
+
+        function normalizeCheckinDay(dayData) {
+            const normalized = dayData || createDefaultCheckinDay();
+
+            CHECKIN_PERIODS.forEach(period => {
+                if (!normalized[period]) {
+                    normalized[period] = { checkIn: null, checkOut: null, status: { checkIn: null, checkOut: null } };
+                }
+                CHECKIN_ACTIONS.forEach(action => {
+                    if (!Object.prototype.hasOwnProperty.call(normalized[period], action)) {
+                        normalized[period][action] = null;
+                    }
+                });
+                if (!normalized[period].status) {
+                    normalized[period].status = { checkIn: null, checkOut: null };
+                }
+                CHECKIN_ACTIONS.forEach(action => {
+                    if (!Object.prototype.hasOwnProperty.call(normalized[period].status, action)) {
+                        normalized[period].status[action] = null;
+                    }
+                });
+            });
+
+            if (!normalized.meta) {
+                normalized.meta = {};
+            }
+
+            CHECKIN_PERIODS.forEach(period => {
+                if (!normalized.meta[period]) {
+                    normalized.meta[period] = {};
+                }
+                CHECKIN_ACTIONS.forEach(action => {
+                    if (!Object.prototype.hasOwnProperty.call(normalized.meta[period], action)) {
+                        normalized.meta[period][action] = null;
+                    }
+                });
+            });
+
+            if (typeof normalized.leave !== 'boolean') {
+                normalized.leave = Boolean(normalized.leave);
+            }
+            if (typeof normalized.leaveReason !== 'string') {
+                normalized.leaveReason = normalized.leaveReason || '';
+            }
+
+            return normalized;
+        }
+
+        function ensureCheckinDateData(date) {
             if (!checkinData[date]) {
                 checkinData[date] = createDefaultCheckinDay();
+            } else {
+                checkinData[date] = normalizeCheckinDay(checkinData[date]);
             }
+
+            return checkinData[date];
+        }
+
+        function ensureDateData(date) {
+            ensureCheckinDateData(date);
             
             if (!phoneResistData.records[date]) {
                 phoneResistData.records[date] = { count: 0, times: [] };
@@ -1903,6 +1985,192 @@
             });
         }
 
+        function getCheckinMeta(dayData, period, action) {
+            return dayData?.meta?.[period]?.[action] || null;
+        }
+
+        function isManualCheckin(dayData, period, action) {
+            return getCheckinMeta(dayData, period, action)?.source === 'manual';
+        }
+
+        function formatCheckinValueHTML(dayData, period, action) {
+            const value = dayData[period][action];
+            if (!value) return '-';
+
+            const meta = getCheckinMeta(dayData, period, action);
+            const manualBadge = meta?.source === 'manual'
+                ? '<span class="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">补卡</span>'
+                : '';
+            const nextDayBadge = meta?.isNextDay
+                ? '<span class="ml-1 inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">次日</span>'
+                : '';
+
+            return `${escapeHtml(value)}${manualBadge}${nextDayBadge}`;
+        }
+
+        function formatCheckinValueText(dayData, period, action) {
+            const value = dayData[period][action];
+            if (!value) return '-';
+
+            const meta = getCheckinMeta(dayData, period, action);
+            const tags = [];
+            if (meta?.source === 'manual') tags.push('补卡');
+            if (meta?.isNextDay) tags.push('次日');
+            return tags.length > 0 ? `${value}（${tags.join('，')}）` : value;
+        }
+
+        function updateCheckinStatusCell(cell, value, status) {
+            if (!value) {
+                cell.textContent = '-';
+                cell.className = 'py-2 px-4 border-b border-gray-200';
+                return;
+            }
+
+            cell.textContent = status ? '合格' : '不合格';
+            cell.className = `py-2 px-4 border-b border-gray-200 ${status ? 'text-green-600' : 'text-red-600'}`;
+        }
+
+        function updateAfterCheckinChange(changedDate) {
+            saveData();
+            updateCheckinButtons();
+            updateTodayCheckinTable();
+            updateTodayStatus();
+            updateSummaryStatistics();
+
+            if (!getElement('stats-section').classList.contains('hidden')) {
+                updateStatisticsCharts(getActiveStatsPeriod());
+            }
+
+            if (changedDate === getWorkDayString()) {
+                updateCheckinTimeDisplay();
+            }
+
+            checkAchievements();
+        }
+
+        function openManualCheckinModal(period = 'morning', action = 'checkIn') {
+            const modal = getElement('manual-checkin-modal');
+            getElement('manual-checkin-date').value = getWorkDayString();
+            getElement('manual-checkin-time').value = getCurrentTimeString();
+            getElement('manual-checkin-period').value = period;
+            getElement('manual-checkin-action').value = action;
+            getElement('manual-checkin-reason').value = '';
+            updateManualCheckinPreview();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeManualCheckinModal() {
+            const modal = getElement('manual-checkin-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function getManualCheckinFormValue() {
+            const rawTime = getElement('manual-checkin-time').value;
+            return {
+                date: getElement('manual-checkin-date').value,
+                period: getElement('manual-checkin-period').value,
+                action: getElement('manual-checkin-action').value,
+                time: rawTime ? normalizeTimeValue(rawTime) : '',
+                reason: getElement('manual-checkin-reason').value.trim()
+            };
+        }
+
+        function getManualCheckinRecordedMinutes(period, action, time) {
+            return getRecordedCheckinMinutes(period, action, time);
+        }
+
+        function updateManualNextDayHint(period, action, time) {
+            const wrap = getElement('manual-checkin-next-day-wrap');
+            const checkbox = getElement('manual-checkin-next-day');
+            const shouldShow = period === 'evening' && action === 'checkOut';
+            const isNextDay = shouldShow && time && timeToMinutes(time) < dayRolloverHour * 60;
+
+            wrap.classList.toggle('hidden', !shouldShow);
+            wrap.classList.toggle('flex', shouldShow);
+            checkbox.checked = isNextDay;
+            checkbox.disabled = true;
+        }
+
+        function updateManualCheckinPreview() {
+            const preview = getElement('manual-checkin-preview');
+            const { date, period, action, time, reason } = getManualCheckinFormValue();
+
+            updateManualNextDayHint(period, action, time);
+
+            if (!date || !time || !PERIOD_LABELS[period] || !ACTION_LABELS[action]) {
+                preview.textContent = '选择日期、时段、类型和时间后预览补卡结果。';
+                return;
+            }
+
+            const dayData = checkinData[date]
+                ? normalizeCheckinDay(safeParseJSON(JSON.stringify(checkinData[date]), createDefaultCheckinDay()))
+                : createDefaultCheckinDay();
+            const currentValue = dayData[period][action];
+            const status = getCheckinStatusFor(period, action, time);
+            const recordedMinutes = getManualCheckinRecordedMinutes(period, action, time);
+            const allowedRange = action === 'checkOut' ? getEffectiveAllowedRange(period, action) : getRule(period, action).allowed;
+            const inAllowedWindow = isMinuteInRange(recordedMinutes, allowedRange.start, allowedRange.end);
+            const isNextDay = period === 'evening' && action === 'checkOut' && recordedMinutes >= 1440;
+            const statusClass = status ? 'text-green-700' : 'text-red-600';
+            const allowedText = inAllowedWindow ? '在可打卡时间窗内' : '不在可打卡时间窗内';
+            const reasonText = reason ? `原因：${escapeHtml(reason)}` : '原因：未填写';
+
+            preview.innerHTML = `
+                <div class="font-medium ${statusClass}">${PERIOD_LABELS[period]}${ACTION_LABELS[action]}将判定为：${status ? '合格' : '不合格'}</div>
+                <div class="mt-1">工作日：${escapeHtml(date)}；实际时间：${isNextDay ? '次日 ' : ''}${escapeHtml(time)}；${allowedText}。</div>
+                <div class="mt-1">合格窗口：${formatRuleRange(getRule(period, action).qualified)}。</div>
+                <div class="mt-1">${currentValue ? `当前已有记录：${escapeHtml(currentValue)}，保存时会要求确认覆盖。` : '当前为空，将新增补卡记录。'}</div>
+                <div class="mt-1 text-gray-500">${reasonText}</div>
+            `;
+        }
+
+        function saveManualCheckin() {
+            const { date, period, action, time, reason } = getManualCheckinFormValue();
+
+            if (!date) {
+                alert('请选择补卡所属的工作日日期。');
+                return;
+            }
+            if (!time) {
+                alert('请选择实际打卡时间。');
+                return;
+            }
+            if (!PERIOD_LABELS[period] || !ACTION_LABELS[action]) {
+                alert('请选择有效的打卡时段和类型。');
+                return;
+            }
+
+            const dayData = ensureCheckinDateData(date);
+            if (dayData.leave) {
+                const shouldContinue = confirm('所选日期当前标记为请假。仍然要补卡吗？');
+                if (!shouldContinue) return;
+            }
+
+            const existingValue = dayData[period][action];
+            const existingMeta = getCheckinMeta(dayData, period, action);
+            if (existingValue) {
+                const shouldOverwrite = confirm(`${PERIOD_LABELS[period]}${ACTION_LABELS[action]}已有记录 ${existingValue}。是否覆盖为 ${time}？`);
+                if (!shouldOverwrite) return;
+            }
+
+            const recordedMinutes = getManualCheckinRecordedMinutes(period, action, time);
+            dayData[period][action] = time;
+            dayData[period].status[action] = getCheckinStatusFor(period, action, time);
+            dayData.meta[period][action] = {
+                source: 'manual',
+                reason,
+                createdAt: new Date().toISOString(),
+                previousValue: existingValue || null,
+                previousMeta: existingMeta || null,
+                isNextDay: period === 'evening' && action === 'checkOut' && recordedMinutes >= 1440
+            };
+
+            updateAfterCheckinChange(date);
+            closeManualCheckinModal();
+        }
+
         // 初始化打卡功能
         function initCheckin() {
             // 上午打卡
@@ -1930,6 +2198,24 @@
             
             getElement('evening-checkout').addEventListener('click', function() {
                 checkOut('evening');
+            });
+
+            getElement('open-manual-checkin').addEventListener('click', function() {
+                openManualCheckinModal();
+            });
+
+            getElement('close-manual-checkin').addEventListener('click', closeManualCheckinModal);
+            getElement('cancel-manual-checkin').addEventListener('click', closeManualCheckinModal);
+            getElement('save-manual-checkin').addEventListener('click', saveManualCheckin);
+            getElement('manual-checkin-modal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeManualCheckinModal();
+                }
+            });
+
+            ['manual-checkin-date', 'manual-checkin-time', 'manual-checkin-period', 'manual-checkin-action', 'manual-checkin-reason'].forEach(id => {
+                getElement(id).addEventListener('input', updateManualCheckinPreview);
+                getElement(id).addEventListener('change', updateManualCheckinPreview);
             });
             
             // 更新打卡按钮状态
@@ -1984,26 +2270,10 @@
 
             // 记录打卡时间
             checkinData[today][period].checkIn = currentTime;
+            checkinData[today][period].status.checkIn = getCheckinStatusFor(period, 'checkIn', currentTime);
+            checkinData[today].meta[period].checkIn = null;
 
-            // 判断是否在规定时间内打卡
-            const status = isTimeStringInRange(currentTime, getRule(period, 'checkIn').qualified);
-            
-            checkinData[today][period].status.checkIn = status;
-            
-            // 保存数据
-            saveData();
-            
-            // 更新按钮状态
-            updateCheckinButtons();
-            
-            // 更新今日打卡记录表格
-            updateTodayCheckinTable();
-            
-            // 更新今日状态
-            updateTodayStatus();
-            
-            // 检查成就
-            checkAchievements();
+            updateAfterCheckinChange(today);
         }
         
         // 下班打卡
@@ -2014,117 +2284,51 @@
 
             // 记录打卡时间
             checkinData[today][period].checkOut = currentTime;
+            checkinData[today][period].status.checkOut = getCheckinStatusFor(period, 'checkOut', currentTime);
+            checkinData[today].meta[period].checkOut = null;
 
-            const checkoutMinutes = getRecordedCheckinMinutes(period, 'checkOut', currentTime);
-            const qualifiedRange = getRule(period, 'checkOut').qualified;
-            const status = isMinuteInRange(checkoutMinutes, qualifiedRange.start, qualifiedRange.end);
-            
-            checkinData[today][period].status.checkOut = status;
-            
-            // 保存数据
-            saveData();
-            
-            // 更新按钮状态
-            updateCheckinButtons();
-            
-            // 更新今日打卡记录表格
-            updateTodayCheckinTable();
-            
-            // 更新今日状态
-            updateTodayStatus();
-            
-            // 检查成就
-            checkAchievements();
+            updateAfterCheckinChange(today);
         }
         
         // 更新打卡时间显示
         function updateCheckinTimeDisplay() {
             const today = getWorkDayString();
             ensureDateData(today);
+            const dayData = checkinData[today];
             
             // 上午打卡时间
-            getElement('morning-checkin-time').textContent = `上班: ${checkinData[today].morning.checkIn || '-'}`;
-            getElement('morning-checkout-time').textContent = `下班: ${checkinData[today].morning.checkOut || '-'}`;
+            getElement('morning-checkin-time').textContent = `上班: ${formatCheckinValueText(dayData, 'morning', 'checkIn')}`;
+            getElement('morning-checkout-time').textContent = `下班: ${formatCheckinValueText(dayData, 'morning', 'checkOut')}`;
             
             // 下午打卡时间
-            getElement('afternoon-checkin-time').textContent = `上班: ${checkinData[today].afternoon.checkIn || '-'}`;
-            getElement('afternoon-checkout-time').textContent = `下班: ${checkinData[today].afternoon.checkOut || '-'}`;
+            getElement('afternoon-checkin-time').textContent = `上班: ${formatCheckinValueText(dayData, 'afternoon', 'checkIn')}`;
+            getElement('afternoon-checkout-time').textContent = `下班: ${formatCheckinValueText(dayData, 'afternoon', 'checkOut')}`;
             
             // 晚上打卡时间
-            getElement('evening-checkin-time').textContent = `上班: ${checkinData[today].evening.checkIn || '-'}`;
-            getElement('evening-checkout-time').textContent = `下班: ${checkinData[today].evening.checkOut || '-'}`;
+            getElement('evening-checkin-time').textContent = `上班: ${formatCheckinValueText(dayData, 'evening', 'checkIn')}`;
+            getElement('evening-checkout-time').textContent = `下班: ${formatCheckinValueText(dayData, 'evening', 'checkOut')}`;
         }
         
         // 更新今日打卡记录表格
         function updateTodayCheckinTable() {
             const today = getWorkDayString();
             ensureDateData(today);
-            
-            // 上午打卡记录
-            getElement('table-morning-checkin').textContent = checkinData[today].morning.checkIn || '-';
-            getElement('table-morning-checkout').textContent = checkinData[today].morning.checkOut || '-';
-            
-            const morningCheckinStatus = getElement('table-morning-checkin-status');
-            if (checkinData[today].morning.checkIn === null) {
-                morningCheckinStatus.textContent = '-';
-                morningCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                morningCheckinStatus.textContent = checkinData[today].morning.status.checkIn ? '合格' : '不合格';
-                morningCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].morning.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
-            }
-            
-            const morningCheckoutStatus = getElement('table-morning-checkout-status');
-            if (checkinData[today].morning.checkOut === null) {
-                morningCheckoutStatus.textContent = '-';
-                morningCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                morningCheckoutStatus.textContent = checkinData[today].morning.status.checkOut ? '合格' : '不合格';
-                morningCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].morning.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
-            }
-            
-            // 下午打卡记录
-            getElement('table-afternoon-checkin').textContent = checkinData[today].afternoon.checkIn || '-';
-            getElement('table-afternoon-checkout').textContent = checkinData[today].afternoon.checkOut || '-';
-            
-            const afternoonCheckinStatus = getElement('table-afternoon-checkin-status');
-            if (checkinData[today].afternoon.checkIn === null) {
-                afternoonCheckinStatus.textContent = '-';
-                afternoonCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                afternoonCheckinStatus.textContent = checkinData[today].afternoon.status.checkIn ? '合格' : '不合格';
-                afternoonCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].afternoon.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
-            }
-            
-            const afternoonCheckoutStatus = getElement('table-afternoon-checkout-status');
-            if (checkinData[today].afternoon.checkOut === null) {
-                afternoonCheckoutStatus.textContent = '-';
-                afternoonCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                afternoonCheckoutStatus.textContent = checkinData[today].afternoon.status.checkOut ? '合格' : '不合格';
-                afternoonCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].afternoon.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
-            }
-            
-            // 晚上打卡记录
-            getElement('table-evening-checkin').textContent = checkinData[today].evening.checkIn || '-';
-            getElement('table-evening-checkout').textContent = checkinData[today].evening.checkOut || '-';
-            
-            const eveningCheckinStatus = getElement('table-evening-checkin-status');
-            if (checkinData[today].evening.checkIn === null) {
-                eveningCheckinStatus.textContent = '-';
-                eveningCheckinStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                eveningCheckinStatus.textContent = checkinData[today].evening.status.checkIn ? '合格' : '不合格';
-                eveningCheckinStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].evening.status.checkIn ? 'text-green-600' : 'text-red-600'}`;
-            }
-            
-            const eveningCheckoutStatus = getElement('table-evening-checkout-status');
-            if (checkinData[today].evening.checkOut === null) {
-                eveningCheckoutStatus.textContent = '-';
-                eveningCheckoutStatus.className = 'py-2 px-4 border-b border-gray-200';
-            } else {
-                eveningCheckoutStatus.textContent = checkinData[today].evening.status.checkOut ? '合格' : '不合格';
-                eveningCheckoutStatus.className = `py-2 px-4 border-b border-gray-200 ${checkinData[today].evening.status.checkOut ? 'text-green-600' : 'text-red-600'}`;
-            }
+            const dayData = checkinData[today];
+
+            CHECKIN_PERIODS.forEach(period => {
+                getElement(`table-${period}-checkin`).innerHTML = formatCheckinValueHTML(dayData, period, 'checkIn');
+                getElement(`table-${period}-checkout`).innerHTML = formatCheckinValueHTML(dayData, period, 'checkOut');
+                updateCheckinStatusCell(
+                    getElement(`table-${period}-checkin-status`),
+                    dayData[period].checkIn,
+                    dayData[period].status.checkIn
+                );
+                updateCheckinStatusCell(
+                    getElement(`table-${period}-checkout-status`),
+                    dayData[period].checkOut,
+                    dayData[period].status.checkOut
+                );
+            });
         }
         
         // 初始化手机克制功能
