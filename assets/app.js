@@ -8,6 +8,8 @@
         let rulesConfig = null; // 打卡规则配置
         let focusData = {}; // 专注记录
         let currentFocusSession = null; // 当前专注会话
+        let restData = {}; // 休息记录
+        let currentRestSession = null; // 当前休息会话
         let sedentaryData = {}; // 久坐提醒记录
         let currentSedentarySession = null; // 当前久坐提醒会话
         let catData = { affection: 0, fedRecords: {} }; // 猫咪互动数据
@@ -15,14 +17,17 @@
         let taskTimer = null; // 任务计时器
         let taskStartTime = null; // 任务开始时间
         let focusTimer = null; // 专注计时器
+        let restTimer = null; // 休息计时器
         let sedentaryTimer = null; // 久坐提醒计时器
         let catMessageTimer = null; // 猫咪临时台词计时器
         let catTemporaryMessage = ''; // 猫咪临时台词
         let focusReminderAudioContext = null; // 专注完成声音提醒
         let focusReminderSoundTimer = null; // 专注完成声音循环
         let focusTitleTimer = null; // 专注完成标题闪烁
+        let restTitleTimer = null; // 休息结束标题闪烁
         let focusOriginalTitle = ''; // 原始页面标题
         let pendingFocusCompletionReminderId = null; // 等待用户确认的桌面专注提醒
+        let pendingRestCompletionReminderId = null; // 等待用户确认的桌面休息提醒
         let lastRenderedNaturalDate = null; // 最近一次渲染的自然日
         let lastRenderedWorkDay = null; // 最近一次渲染的工作日
         let lastRenderedMinuteKey = null; // 最近一次渲染的分钟
@@ -39,8 +44,8 @@
         const SEDENTARY_STAND_MINUTES = 5;
         const CHECKIN_REMINDER_LEAD_MINUTES = 10;
         const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js';
-        const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
-        const NAV_BUTTON_IDS = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
+        const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'rest-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
+        const NAV_BUTTON_IDS = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-rest', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
         
         const STORAGE_KEYS = {
             appState: 'phdWorkstationAppState',
@@ -54,6 +59,8 @@
             rulesConfig: 'rulesConfig',
             focusData: 'focusData',
             currentFocusSession: 'currentFocusSession',
+            restData: 'restData',
+            currentRestSession: 'currentRestSession',
             sedentaryData: 'sedentaryData',
             currentSedentarySession: 'currentSedentarySession',
             catData: 'catData',
@@ -174,6 +181,9 @@
 
             // 初始化专注时长功能
             initFocusManagement();
+
+            // 初始化休息计时功能
+            initRestManagement();
 
             // 初始化久坐提醒功能
             initSedentaryReminder();
@@ -577,6 +587,16 @@
 
             if (!focusData[date]) {
                 focusData[date] = { totalMinutes: 0, sessions: [] };
+            } else {
+                focusData[date].totalMinutes = Number(focusData[date].totalMinutes || 0);
+                if (!Array.isArray(focusData[date].sessions)) focusData[date].sessions = [];
+            }
+
+            if (!restData[date]) {
+                restData[date] = { totalMinutes: 0, sessions: [] };
+            } else {
+                restData[date].totalMinutes = Number(restData[date].totalMinutes || 0);
+                if (!Array.isArray(restData[date].sessions)) restData[date].sessions = [];
             }
 
             if (!sedentaryData[date]) {
@@ -602,6 +622,8 @@
                 rulesConfig: safeParseJSON(localStorage.getItem(STORAGE_KEYS.rulesConfig), createDefaultRulesConfig()),
                 focusData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusData), {}),
                 currentFocusSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentFocusSession), null),
+                restData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.restData), {}),
+                currentRestSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentRestSession), null),
                 sedentaryData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.sedentaryData), {}),
                 currentSedentarySession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentSedentarySession), null),
                 catData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.catData), { affection: 0, fedRecords: {} }),
@@ -622,6 +644,8 @@
             rulesConfig = normalizeRulesConfig(state.rulesConfig || createDefaultRulesConfig());
             focusData = state.focusData || {};
             currentFocusSession = state.currentFocusSession || null;
+            restData = state.restData || {};
+            currentRestSession = state.currentRestSession || null;
             sedentaryData = state.sedentaryData || {};
             currentSedentarySession = state.currentSedentarySession || null;
             catData = state.catData || { affection: 0, fedRecords: {} };
@@ -651,6 +675,10 @@
                 ensureDateData(currentFocusSession.date);
             }
 
+            if (currentRestSession && currentRestSession.date) {
+                ensureDateData(currentRestSession.date);
+            }
+
             if (currentSedentarySession && currentSedentarySession.date) {
                 ensureDateData(currentSedentarySession.date);
             }
@@ -678,6 +706,8 @@
                 rulesConfig,
                 focusData,
                 currentFocusSession,
+                restData,
+                currentRestSession,
                 sedentaryData,
                 currentSedentarySession,
                 catData,
@@ -697,6 +727,8 @@
             localStorage.setItem(STORAGE_KEYS.rulesConfig, JSON.stringify(rulesConfig));
             localStorage.setItem(STORAGE_KEYS.focusData, JSON.stringify(focusData));
             localStorage.setItem(STORAGE_KEYS.currentFocusSession, JSON.stringify(currentFocusSession));
+            localStorage.setItem(STORAGE_KEYS.restData, JSON.stringify(restData));
+            localStorage.setItem(STORAGE_KEYS.currentRestSession, JSON.stringify(currentRestSession));
             localStorage.setItem(STORAGE_KEYS.sedentaryData, JSON.stringify(sedentaryData));
             localStorage.setItem(STORAGE_KEYS.currentSedentarySession, JSON.stringify(currentSedentarySession));
             localStorage.setItem(STORAGE_KEYS.catData, JSON.stringify(catData));
@@ -872,6 +904,9 @@
                 updateStatisticsCharts(getActiveStatsPeriod());
             } else if (sectionId === 'rules-section') {
                 renderRulesForm();
+            } else if (sectionId === 'rest-section') {
+                updateRestTimerDisplay();
+                updateTodayRestSummary();
             } else if (sectionId === 'sedentary-section') {
                 updateSedentaryDisplay();
             }
@@ -947,6 +982,7 @@
 
             getElement('focus-completion-dismiss').addEventListener('click', function() {
                 dismissFocusCompletionReminder();
+                dismissRestCompletionReminder();
             });
 
             const desktopBridge = getDesktopBridge();
@@ -966,6 +1002,60 @@
             updateFocusNotificationStatus();
             updateTodayFocusSummary();
             restoreFocusSession();
+        }
+
+        function initRestManagement() {
+            getElement('start-rest-session').addEventListener('click', function() {
+                startRestSession();
+            });
+
+            getElement('pause-rest-session').addEventListener('click', function() {
+                pauseRestSession();
+            });
+
+            getElement('resume-rest-session').addEventListener('click', function() {
+                resumeRestSession();
+            });
+
+            getElement('finish-rest-session').addEventListener('click', function() {
+                finishRestSessionEarly();
+            });
+
+            getElement('reset-rest-session').addEventListener('click', function() {
+                resetRestSession();
+            });
+
+            getElement('enable-rest-notifications').addEventListener('click', async function() {
+                await requestRestNotificationPermission();
+                updateRestNotificationStatus();
+            });
+
+            const desktopBridge = getDesktopBridge();
+            if (desktopBridge) {
+                if (typeof desktopBridge.onRestReminderDue === 'function') {
+                    desktopBridge.onRestReminderDue(handleDesktopRestReminderDue);
+                }
+                if (typeof desktopBridge.onRestReminderAcknowledged === 'function') {
+                    desktopBridge.onRestReminderAcknowledged(function(payload) {
+                        dismissRestCompletionReminder({ skipDesktopAck: true, sessionId: payload && payload.sessionId });
+                    });
+                }
+                if (typeof desktopBridge.onRestReminderSnooze === 'function') {
+                    desktopBridge.onRestReminderSnooze(function(payload) {
+                        handleDesktopRestReminderSnooze(payload);
+                    });
+                }
+            }
+
+            document.querySelectorAll('.rest-preset').forEach(button => {
+                button.addEventListener('click', function() {
+                    getElement('rest-duration-input').value = this.getAttribute('data-minutes');
+                });
+            });
+
+            updateRestNotificationStatus();
+            updateTodayRestSummary();
+            restoreRestSession();
         }
 
         function initSedentaryReminder() {
@@ -1905,6 +1995,462 @@
                 `;
                 container.appendChild(row);
             });
+        }
+
+        async function requestRestNotificationPermission() {
+            return requestNotificationPermission();
+        }
+
+        function updateRestNotificationStatus() {
+            const statusElement = getElement('rest-reminder-status');
+            const button = getElement('enable-rest-notifications');
+            if (!statusElement || !button) return;
+
+            if (getDesktopBridge()) {
+                statusElement.textContent = '桌面版强提醒已开启：休息结束后会由 Electron 触发系统通知、窗口置顶、任务栏闪烁和托盘提醒。';
+                button.textContent = '桌面强提醒已开启';
+                setButtonState(button, false);
+                return;
+            }
+
+            if (!('Notification' in window)) {
+                statusElement.textContent = '页面弹窗、声音和标题提醒已开启；当前浏览器不支持桌面通知。';
+                button.textContent = '浏览器不支持';
+                setButtonState(button, false);
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                statusElement.textContent = '页面弹窗、声音、标题提醒和桌面通知均已开启。';
+                button.textContent = '桌面通知已开启';
+                setButtonState(button, false);
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                statusElement.textContent = '页面弹窗、声音和标题提醒已开启；桌面通知已被浏览器拒绝，可在浏览器网站权限中重新允许。';
+                button.textContent = '桌面通知已拒绝';
+                setButtonState(button, false);
+                return;
+            }
+
+            statusElement.textContent = '页面弹窗、声音和标题提醒已开启；桌面通知需要手动授权一次。';
+            button.textContent = '开启桌面通知';
+            setButtonState(button, true);
+        }
+
+        function createRestSession(minutes, date, startTimestamp) {
+            const durationMs = minutes * 60 * 1000;
+            return {
+                id: `rest_${Date.now()}`,
+                date,
+                plannedMinutes: minutes,
+                originalStartTimestamp: startTimestamp,
+                startTimestamp,
+                endTimestamp: startTimestamp + durationMs,
+                isPaused: false,
+                remainingMs: durationMs,
+                elapsedMs: 0
+            };
+        }
+
+        function getRestElapsedMs(session) {
+            if (!session) return 0;
+            const totalMs = session.plannedMinutes * 60 * 1000;
+            const baseElapsedMs = Math.max(session.elapsedMs || 0, 0);
+            if (session.isPaused) {
+                return Math.min(baseElapsedMs, totalMs);
+            }
+            return Math.min(baseElapsedMs + Math.max(Date.now() - session.startTimestamp, 0), totalMs);
+        }
+
+        function getRestRemainingMs(session) {
+            if (!session) return 0;
+            if (session.isPaused) {
+                return Math.max(session.remainingMs || 0, 0);
+            }
+            return Math.max(session.endTimestamp - Date.now(), 0);
+        }
+
+        function startRestSession(minutesOverride = null, options = {}) {
+            const minutes = Number.isFinite(minutesOverride)
+                ? minutesOverride
+                : parseInt(getElement('rest-duration-input').value, 10);
+
+            if (!Number.isFinite(minutes) || minutes <= 0) {
+                alert('请输入大于 0 的休息分钟数。');
+                return;
+            }
+
+            if (minutes > 240) {
+                alert('单次休息时长最多 240 分钟。');
+                return;
+            }
+
+            if (currentRestSession) {
+                const shouldReplace = options.force || confirm('当前已有进行中的休息计时。是否重置当前计时并开始新的休息？');
+                if (!shouldReplace) return;
+                resetRestSession(false);
+            }
+
+            dismissRestCompletionReminder();
+            primeFocusReminderAudio();
+
+            const today = getTodayString();
+            ensureDateData(today);
+            currentRestSession = createRestSession(minutes, today, Date.now());
+
+            saveData();
+            scheduleDesktopRestReminder(currentRestSession);
+            startRestTimer();
+        }
+
+        function pauseRestSession() {
+            if (!currentRestSession || currentRestSession.isPaused) return;
+
+            const sessionId = currentRestSession.id;
+            currentRestSession.remainingMs = getRestRemainingMs(currentRestSession);
+            currentRestSession.elapsedMs = getRestElapsedMs(currentRestSession);
+            currentRestSession.isPaused = true;
+
+            setTickHandler('rest', null);
+            restTimer = null;
+            cancelDesktopRestReminder(sessionId);
+
+            saveData();
+            updateRestTimerDisplay();
+        }
+
+        function resumeRestSession() {
+            if (!currentRestSession || !currentRestSession.isPaused) return;
+
+            const now = Date.now();
+            const remainingMs = Math.max(currentRestSession.remainingMs || 0, 1000);
+            currentRestSession.startTimestamp = now;
+            currentRestSession.endTimestamp = now + remainingMs;
+            currentRestSession.isPaused = false;
+            currentRestSession.remainingMs = remainingMs;
+
+            saveData();
+            scheduleDesktopRestReminder(currentRestSession);
+            startRestTimer();
+        }
+
+        function finishRestSessionEarly() {
+            if (!currentRestSession) return;
+            const shouldFinish = confirm('提前结束会按已经休息的实际时长写入今日记录。确定结束吗？');
+            if (!shouldFinish) return;
+            stopRestSession(false);
+        }
+
+        function resetRestSession(shouldConfirm = true) {
+            if (!currentRestSession) {
+                updateRestTimerDisplay();
+                return;
+            }
+
+            if (shouldConfirm) {
+                const confirmReset = confirm('重置后会清空当前休息计时，不会写入今日休息记录。确定重置吗？');
+                if (!confirmReset) return;
+            }
+
+            const sessionId = currentRestSession.id;
+            setTickHandler('rest', null);
+            restTimer = null;
+            cancelDesktopRestReminder(sessionId);
+            currentRestSession = null;
+
+            saveData();
+            updateRestTimerDisplay();
+        }
+
+        function restoreRestSession() {
+            if (!currentRestSession || !currentRestSession.endTimestamp) {
+                updateRestTimerDisplay();
+                return;
+            }
+
+            if (currentRestSession.date) {
+                ensureDateData(currentRestSession.date);
+            }
+
+            if (currentRestSession.isPaused) {
+                cancelDesktopRestReminder(currentRestSession.id);
+                updateRestTimerDisplay();
+                return;
+            }
+
+            if (Date.now() >= currentRestSession.endTimestamp) {
+                completeRestSession();
+                return;
+            }
+
+            startRestTimer();
+            scheduleDesktopRestReminder(currentRestSession);
+        }
+
+        function startRestTimer() {
+            updateRestTimerDisplay();
+            restTimer = true;
+
+            setTickHandler('rest', () => {
+                if (!currentRestSession || currentRestSession.isPaused) return;
+
+                if (Date.now() >= currentRestSession.endTimestamp) {
+                    if (getDesktopBridge() && Date.now() - currentRestSession.endTimestamp < 15000) {
+                        updateRestTimerDisplay();
+                        return;
+                    }
+                    completeRestSession();
+                    return;
+                }
+
+                updateRestTimerDisplay();
+            });
+        }
+
+        function updateRestTimerDisplay() {
+            const countdownDisplay = getElement('rest-countdown-display');
+            const restStatus = getElement('rest-session-status');
+            const progressBar = getElement('rest-progress-bar');
+            const pauseButton = getElement('pause-rest-session');
+            const resumeButton = getElement('resume-rest-session');
+            const finishButton = getElement('finish-rest-session');
+            const resetButton = getElement('reset-rest-session');
+
+            if (!currentRestSession) {
+                countdownDisplay.textContent = '00:00';
+                restStatus.textContent = '当前没有进行中的休息计时';
+                progressBar.style.width = '0%';
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                finishButton.classList.add('hidden');
+                resetButton.classList.add('hidden');
+                return;
+            }
+
+            const remainingMs = getRestRemainingMs(currentRestSession);
+            const remainingSeconds = Math.ceil(remainingMs / 1000);
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const totalMs = currentRestSession.plannedMinutes * 60 * 1000;
+            const progress = totalMs > 0 ? (getRestElapsedMs(currentRestSession) / totalMs) * 100 : 0;
+
+            countdownDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            restStatus.textContent = currentRestSession.isPaused
+                ? `已暂停：本次计划休息 ${currentRestSession.plannedMinutes} 分钟`
+                : `休息中：本次计划 ${currentRestSession.plannedMinutes} 分钟`;
+            progressBar.style.width = `${Math.max(0, Math.min(progress, 100))}%`;
+
+            finishButton.classList.remove('hidden');
+            resetButton.classList.remove('hidden');
+            if (currentRestSession.isPaused) {
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.remove('hidden');
+            } else {
+                pauseButton.classList.remove('hidden');
+                resumeButton.classList.add('hidden');
+            }
+        }
+
+        function finalizeRestSession(completed) {
+            if (!currentRestSession) return null;
+
+            const session = currentRestSession;
+            const recordedDate = session.date || getTodayString();
+            ensureDateData(recordedDate);
+
+            const endTimestamp = completed ? session.endTimestamp : Date.now();
+            const actualElapsedMs = completed
+                ? session.plannedMinutes * 60 * 1000
+                : getRestElapsedMs(session);
+            const actualMinutes = completed
+                ? session.plannedMinutes
+                : Math.min(Math.max(1, Math.round(actualElapsedMs / (1000 * 60))), session.plannedMinutes);
+
+            restData[recordedDate].totalMinutes += actualMinutes;
+            restData[recordedDate].sessions.push({
+                id: session.id,
+                plannedMinutes: session.plannedMinutes,
+                actualMinutes,
+                completed,
+                startTime: new Date(session.originalStartTimestamp || session.startTimestamp).toTimeString().slice(0, 5),
+                endTime: new Date(endTimestamp).toTimeString().slice(0, 5)
+            });
+
+            currentRestSession = null;
+            setTickHandler('rest', null);
+            restTimer = null;
+
+            saveData();
+            updateRestTimerDisplay();
+            updateTodayRestSummary();
+            updateSummaryStatistics();
+
+            if (!getElement('stats-section').classList.contains('hidden')) {
+                updateStatisticsCharts(getActiveStatsPeriod());
+            }
+
+            return session;
+        }
+
+        function showRestCompletionPopup(message) {
+            getElement('focus-completion-title').textContent = '休息结束';
+            getElement('focus-completion-message').textContent = message;
+            getElement('focus-completion-popup').classList.remove('hidden');
+        }
+
+        function startRestTitleReminder() {
+            stopRestTitleReminder();
+            let showAlertTitle = true;
+            document.title = '休息结束 - 回到学习';
+            restTitleTimer = setInterval(() => {
+                document.title = showAlertTitle ? (focusOriginalTitle || '研究生工位打卡与时间管理系统') : '休息结束 - 回到学习';
+                showAlertTitle = !showAlertTitle;
+            }, 1000);
+        }
+
+        function stopRestTitleReminder() {
+            if (restTitleTimer) {
+                clearInterval(restTitleTimer);
+                restTitleTimer = null;
+            }
+            document.title = focusOriginalTitle || '研究生工位打卡与时间管理系统';
+        }
+
+        function dismissRestCompletionReminder(options = {}) {
+            getElement('focus-completion-popup').classList.add('hidden');
+            stopFocusReminderSound();
+            stopRestTitleReminder();
+            const reminderId = options.sessionId || pendingRestCompletionReminderId;
+            if (!options.skipDesktopAck && reminderId) {
+                acknowledgeDesktopRestReminder(reminderId);
+            }
+            if (!options.sessionId || options.sessionId === pendingRestCompletionReminderId) {
+                pendingRestCompletionReminderId = null;
+            }
+        }
+
+        function showRestDesktopNotification(message) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            try {
+                new Notification('休息结束', {
+                    body: message,
+                    requireInteraction: true
+                });
+            } catch (error) {
+                console.warn('休息桌面通知发送失败，已保留页面提醒。', error);
+            }
+        }
+
+        function showRestReminder(session) {
+            const message = '休息时间结束，该回到学习状态了。';
+            pendingRestCompletionReminderId = session && session.id ? session.id : null;
+            showRestCompletionPopup(message);
+            startFocusReminderSound();
+            startRestTitleReminder();
+            if (!getDesktopBridge()) {
+                showRestDesktopNotification(message);
+            }
+            updateRestNotificationStatus();
+        }
+
+        function completeRestSession(source = 'web') {
+            const session = finalizeRestSession(true);
+            if (!session) return;
+            showRestReminder(session);
+            if (source !== 'desktop' && !getDesktopBridge()) {
+                pendingRestCompletionReminderId = null;
+            }
+        }
+
+        function stopRestSession(isCompleted = false) {
+            const session = finalizeRestSession(isCompleted);
+            if (!session) return;
+            cancelDesktopRestReminder(session.id);
+            if (isCompleted) {
+                showRestReminder(session);
+            }
+        }
+
+        function updateTodayRestSummary() {
+            const today = getTodayString();
+            ensureDateData(today);
+
+            const todayRest = restData[today];
+            const sessions = todayRest.sessions || [];
+            getElement('rest-today-total').textContent = todayRest.totalMinutes || 0;
+            getElement('rest-today-count').textContent = sessions.length;
+
+            const lastSession = sessions[sessions.length - 1];
+            getElement('rest-last-session').textContent = lastSession
+                ? `${lastSession.startTime} - ${lastSession.endTime}，${lastSession.actualMinutes} 分钟`
+                : '暂无';
+
+            const container = getElement('rest-today-records');
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="text-gray-500">暂无休息记录</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            [...sessions].reverse().forEach(session => {
+                const row = document.createElement('div');
+                row.className = 'bg-white rounded-lg p-3 flex items-center justify-between';
+                row.innerHTML = `
+                    <div>
+                        <div class="font-medium text-gray-800">${session.startTime} - ${session.endTime}</div>
+                        <div class="text-xs text-gray-500">${session.completed ? '完整休息' : '提前结束'}，计划 ${session.plannedMinutes} 分钟</div>
+                    </div>
+                    <div class="text-primary font-semibold">${session.actualMinutes} 分钟</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function scheduleDesktopRestReminder(session) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !session) return;
+
+            desktopBridge.scheduleRestReminder({
+                id: session.id,
+                plannedMinutes: session.plannedMinutes,
+                startTimestamp: session.startTimestamp,
+                endTimestamp: session.endTimestamp,
+                isPaused: session.isPaused
+            }).catch(error => {
+                console.warn('桌面休息提醒调度失败，将保留网页提醒兜底。', error);
+            });
+        }
+
+        function cancelDesktopRestReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.cancelRestReminder(sessionId).catch(error => {
+                console.warn('取消桌面休息提醒失败。', error);
+            });
+        }
+
+        function acknowledgeDesktopRestReminder(sessionId) {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || !sessionId) return;
+
+            desktopBridge.acknowledgeRestReminder(sessionId).catch(error => {
+                console.warn('确认桌面休息提醒失败。', error);
+            });
+        }
+
+        function handleDesktopRestReminderDue(payload) {
+            if (!currentRestSession) return;
+            if (payload && payload.sessionId && payload.sessionId !== currentRestSession.id) return;
+            completeRestSession('desktop');
+        }
+
+        function handleDesktopRestReminderSnooze(payload) {
+            const minutes = payload && Number.isFinite(payload.minutes) ? payload.minutes : 5;
+            dismissRestCompletionReminder({ skipDesktopAck: true, sessionId: payload && payload.sessionId });
+            startRestSession(minutes, { force: true });
         }
         
         function getCheckinReminderTargetMinutes(period, action) {
@@ -2980,7 +3526,8 @@
                 checkinPeriodData: prepareCheckinPeriodData(startDate, endDate),
                 taskDurationData: prepareTaskDurationData(startDate, endDate, labels),
                 phoneResistData: preparePhoneResistData(startDate, endDate, labels),
-                focusDurationData: prepareFocusDurationData(startDate, endDate, labels)
+                focusDurationData: prepareFocusDurationData(startDate, endDate, labels),
+                restDurationData: prepareRestDurationData(startDate, endDate, labels)
             };
             statsDataDirty = false;
             renderStatisticsCharts(statsDataCache[period]);
@@ -2992,6 +3539,7 @@
             updateTaskDurationChart(stats.labels, stats.taskDurationData);
             updatePhoneResistChart(stats.labels, stats.phoneResistData);
             updateFocusDurationChart(stats.labels, stats.focusDurationData);
+            updateRestDurationChart(stats.labels, stats.restDurationData);
         }
 
         function updateChartInstance(chartKey, canvasId, config) {
@@ -3259,6 +3807,42 @@
 
             return data;
         }
+
+        function prepareRestDurationData(startDate, endDate, labels) {
+            const data = [];
+
+            for (let i = 0; i < labels.length; i++) {
+                const date = new Date(startDate);
+                if (labels.length === 7) {
+                    date.setDate(startDate.getDate() + i);
+                } else if (labels.length === 10) {
+                    date.setDate(startDate.getDate() + i * 3);
+                } else if (labels.length === 12) {
+                    date.setMonth(startDate.getMonth() + i);
+
+                    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    let monthTotal = 0;
+
+                    const monthCurrent = new Date(monthStart);
+                    while (monthCurrent <= monthEnd) {
+                        const monthDateString = formatLocalDate(monthCurrent);
+                        if (restData[monthDateString]) {
+                            monthTotal += restData[monthDateString].totalMinutes || 0;
+                        }
+                        monthCurrent.setDate(monthCurrent.getDate() + 1);
+                    }
+
+                    data.push(monthTotal / 60);
+                    continue;
+                }
+
+                const dateString = formatLocalDate(date);
+                data.push((restData[dateString]?.totalMinutes || 0) / 60);
+            }
+
+            return data;
+        }
         
         // 更新打卡率图表
         function updateCheckinRateChart(labels, data) {
@@ -3415,6 +3999,31 @@
                 }
             });
         }
+
+        function updateRestDurationChart(labels, data) {
+            updateChartInstance('restDurationChart', 'rest-duration-chart', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '休息时长 (小时)',
+                        data: data,
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
         
         // 更新综合统计
         function updateSummaryStatistics() {
@@ -3435,6 +4044,10 @@
             // 总专注时长(小时)
             const totalFocusMinutes = Object.values(focusData).reduce((sum, day) => sum + (day.totalMinutes || 0), 0);
             getElement('total-focus-hours').textContent = Math.floor(totalFocusMinutes / 60);
+
+            // 总休息时长(小时)
+            const totalRestMinutes = Object.values(restData).reduce((sum, day) => sum + (day.totalMinutes || 0), 0);
+            getElement('total-rest-hours').textContent = Math.floor(totalRestMinutes / 60);
             
             // 获得成就数
             getElement('achievement-count').textContent = achievements.length;

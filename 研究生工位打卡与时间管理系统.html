@@ -50,6 +50,12 @@
                             </button>
                         </li>
                         <li>
+                            <button id="nav-rest" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
+                                <span class="font-medium">休息计时</span>
+                                <i class="fa fa-coffee"></i>
+                            </button>
+                        </li>
+                        <li>
                             <button id="nav-sedentary" class="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 flex items-center justify-between">
                                 <span class="font-medium">久坐提醒</span>
                                 <i class="fa fa-street-view"></i>
@@ -575,6 +581,96 @@
                     </div>
                 </section>
 
+                <!-- 休息计时模块 -->
+                <section id="rest-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fa fa-coffee mr-2 text-primary"></i>休息计时
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-primary mb-4">开始一段休息</h3>
+                            <p class="text-sm text-gray-600 mb-4">学累了就给自己留出一段完整休息时间，到点后系统会提醒你回到学习状态。</p>
+                            <div class="flex flex-col md:flex-row gap-3 items-end">
+                                <div class="w-full">
+                                    <label for="rest-duration-input" class="block text-sm font-medium text-gray-700 mb-1">休息时长（分钟）</label>
+                                    <input id="rest-duration-input" type="number" min="1" max="240" value="10" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                </div>
+                                <button id="start-rest-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                    开始休息
+                                </button>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button class="focus-preset rest-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="5">5 分钟</button>
+                                <button class="focus-preset rest-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="10">10 分钟</button>
+                                <button class="focus-preset rest-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="15">15 分钟</button>
+                                <button class="focus-preset rest-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="20">20 分钟</button>
+                                <button class="focus-preset rest-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="30">30 分钟</button>
+                            </div>
+                            <div class="mt-4 bg-white rounded-lg p-4 border border-blue-200">
+                                <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                                    <div>
+                                        <div class="font-medium text-gray-800">休息结束提醒默认开启</div>
+                                        <div id="rest-reminder-status" class="text-sm text-gray-600 mt-1">页面弹窗、声音和标题提醒已开启。</div>
+                                    </div>
+                                    <button id="enable-rest-notifications" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg text-sm font-medium btn-shadow transition-all">
+                                        开启桌面通知
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-primary mb-4">当前休息倒计时</h3>
+                            <div class="text-5xl font-bold text-primary text-center mb-3" id="rest-countdown-display">00:00</div>
+                            <div class="text-center text-sm text-gray-600 mb-4" id="rest-session-status">当前没有进行中的休息计时</div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                <div id="rest-progress-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <div class="flex flex-wrap justify-center gap-3">
+                                <button id="pause-rest-session" class="bg-white border border-blue-200 text-primary py-2 px-5 rounded-lg font-medium transition-all hidden">
+                                    暂停
+                                </button>
+                                <button id="resume-rest-session" class="bg-white border border-blue-200 text-primary py-2 px-5 rounded-lg font-medium transition-all hidden">
+                                    继续
+                                </button>
+                                <button id="finish-rest-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all hidden">
+                                    提前结束并记录
+                                </button>
+                                <button id="reset-rest-session" class="bg-danger hover:bg-danger/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all hidden">
+                                    重置不记录
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">今日休息概览</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="rest-today-total">0</div>
+                                    <div class="text-sm text-gray-600">今日休息分钟</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold text-primary mb-1" id="rest-today-count">0</div>
+                                    <div class="text-sm text-gray-600">休息次数</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 bg-white rounded-lg p-4 text-sm text-gray-600">
+                                最近一次休息：<span id="rest-last-session">暂无</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">今日休息记录</h3>
+                            <div id="rest-today-records" class="space-y-2 text-sm text-gray-700">
+                                <div class="text-gray-500">暂无休息记录</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- 久坐提醒模块 -->
                 <section id="sedentary-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
                     <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -745,11 +841,17 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 mb-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <div class="bg-blue-50 rounded-lg p-4">
                             <h3 class="text-lg font-semibold text-primary mb-3">每日专注时长</h3>
                             <div class="h-64">
                                 <canvas id="focus-duration-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-primary mb-3">每日休息时长</h3>
+                            <div class="h-64">
+                                <canvas id="rest-duration-chart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -771,6 +873,10 @@
                         <div class="bg-blue-50 rounded-lg p-4 text-center">
                             <div class="text-3xl font-bold text-primary mb-1" id="total-focus-hours">0</div>
                             <div class="text-sm text-gray-600">总专注时长(小时)</div>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-primary mb-1" id="total-rest-hours">0</div>
+                            <div class="text-sm text-gray-600">总休息时长(小时)</div>
                         </div>
                         <div class="bg-blue-50 rounded-lg p-4 text-center">
                             <div class="text-3xl font-bold text-primary mb-1" id="achievement-count">0</div>

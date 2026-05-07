@@ -21,6 +21,15 @@ contextBridge.exposeInMainWorld('attendanceDesktop', {
   acknowledgeFocusReminder(sessionId) {
     return ipcRenderer.invoke('focus-reminder:acknowledge', { sessionId });
   },
+  scheduleRestReminder(session) {
+    return ipcRenderer.invoke('rest-reminder:schedule', session);
+  },
+  cancelRestReminder(sessionId) {
+    return ipcRenderer.invoke('rest-reminder:cancel', { sessionId });
+  },
+  acknowledgeRestReminder(sessionId) {
+    return ipcRenderer.invoke('rest-reminder:acknowledge', { sessionId });
+  },
   scheduleSedentaryReminder(session) {
     return ipcRenderer.invoke('sedentary-reminder:schedule', session);
   },
@@ -44,6 +53,15 @@ contextBridge.exposeInMainWorld('attendanceDesktop', {
   },
   onFocusReminderAcknowledged(callback) {
     return on('focus-reminder:acknowledged', callback);
+  },
+  onRestReminderDue(callback) {
+    return on('rest-reminder:due', callback);
+  },
+  onRestReminderAcknowledged(callback) {
+    return on('rest-reminder:acknowledged', callback);
+  },
+  onRestReminderSnooze(callback) {
+    return on('rest-reminder:snooze', callback);
   },
   onSedentaryReminderDue(callback) {
     return on('sedentary-reminder:due', callback);

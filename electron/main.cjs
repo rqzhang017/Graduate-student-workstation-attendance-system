@@ -19,6 +19,7 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let activeFocusReminder = null;
+let activeRestReminder = null;
 let activeSedentaryReminder = null;
 let currentCheckinReminderDate = null;
 const checkinReminderStates = new Map();
@@ -84,6 +85,7 @@ function navigateToSection(sectionId) {
 
 function hasActiveAttentionReminder() {
   if (activeFocusReminder && activeFocusReminder.isFired) return true;
+  if (activeRestReminder && activeRestReminder.isFired) return true;
   if (activeSedentaryReminder && activeSedentaryReminder.isFired) return true;
   return Array.from(checkinReminderStates.values()).some(state => state.isFired);
 }
@@ -269,6 +271,110 @@ function acknowledgeFocusReminder(sessionId) {
 
   activeFocusReminder.acknowledged = true;
   clearActiveFocusReminder({ notifyRenderer: true });
+  return { ok: true };
+}
+
+function clearActiveRestReminder(options = {}) {
+  if (!activeRestReminder) return;
+
+  clearReminderTimers(activeRestReminder);
+  const acknowledgedSessionId = activeRestReminder.id;
+  activeRestReminder = null;
+  updateTrayMenu();
+  releaseAttentionIfIdle();
+
+  if (options.notifyRenderer) {
+    sendToRenderer('rest-reminder:acknowledged', { sessionId: acknowledgedSessionId });
+  }
+}
+
+function handleRestNotificationAction(actionId) {
+  if (actionId === 'ack') {
+    acknowledgeRestReminder(activeRestReminder && activeRestReminder.id);
+    return;
+  }
+
+  if (actionId === 'snooze') {
+    const sessionId = activeRestReminder && activeRestReminder.id;
+    clearActiveRestReminder();
+    sendToRenderer('rest-reminder:snooze', { sessionId, minutes: 5 });
+    bringReminderToFront('rest-section');
+    return;
+  }
+
+  bringReminderToFront('rest-section');
+}
+
+function showRestNotification(payload) {
+  showSystemNotification({
+    title: payload.title,
+    body: payload.message,
+    actions: [
+      { id: 'open', text: '打开' },
+      { id: 'snooze', text: '再休息5分钟' },
+      { id: 'ack', text: '回到学习' }
+    ],
+    onClick: () => handleRestNotificationAction('open'),
+    onAction: handleRestNotificationAction
+  });
+}
+
+function fireRestReminder() {
+  if (!activeRestReminder || activeRestReminder.acknowledged) return;
+
+  const payload = {
+    sessionId: activeRestReminder.id,
+    plannedMinutes: activeRestReminder.plannedMinutes,
+    endTimestamp: activeRestReminder.endTimestamp,
+    title: '休息结束',
+    message: '休息时间结束，该回到学习状态了。'
+  };
+
+  activeRestReminder.isFired = true;
+  showRestNotification(payload);
+  bringReminderToFront('rest-section');
+  sendToRenderer('rest-reminder:due', payload);
+
+  updateTrayMenu();
+}
+
+function scheduleRestReminder(session) {
+  if (!session || !session.id || !Number.isFinite(session.endTimestamp)) {
+    return { ok: false, reason: 'invalid-session' };
+  }
+
+  clearActiveRestReminder();
+
+  if (session.isPaused) {
+    updateTrayMenu();
+    return { ok: true, reason: 'paused' };
+  }
+
+  const remainingMs = Math.max(0, session.endTimestamp - Date.now());
+  activeRestReminder = {
+    id: session.id,
+    plannedMinutes: session.plannedMinutes || 0,
+    endTimestamp: session.endTimestamp,
+    acknowledged: false,
+    isFired: false,
+    timer: setTimeout(fireRestReminder, remainingMs)
+  };
+
+  updateTrayMenu();
+  return { ok: true, dueInMs: remainingMs };
+}
+
+function acknowledgeRestReminder(sessionId) {
+  if (!activeRestReminder) {
+    return { ok: true, reason: 'no-active-reminder' };
+  }
+
+  if (sessionId && activeRestReminder.id !== sessionId) {
+    return { ok: false, reason: 'session-mismatch' };
+  }
+
+  activeRestReminder.acknowledged = true;
+  clearActiveRestReminder({ notifyRenderer: true });
   return { ok: true };
 }
 
@@ -531,6 +637,10 @@ function updateTrayMenu() {
     ? `专注提醒：${getReminderTimeLabel(activeFocusReminder.endTimestamp)}`
     : '专注提醒：未运行';
 
+  const restLabel = activeRestReminder
+    ? `休息提醒：${getReminderTimeLabel(activeRestReminder.endTimestamp)}`
+    : '休息提醒：未运行';
+
   const sedentaryLabel = activeSedentaryReminder
     ? `久坐提醒：${getReminderTimeLabel(activeSedentaryReminder.endTimestamp)}`
     : '久坐提醒：未运行';
@@ -540,7 +650,7 @@ function updateTrayMenu() {
     ? `打卡提醒：${activeCheckinCount} 个待处理`
     : `打卡提醒：已调度 ${checkinReminderStates.size} 个`;
 
-  tray.setToolTip(`${APP_TITLE} - ${focusLabel}，${sedentaryLabel}，${checkinLabel}`);
+  tray.setToolTip(`${APP_TITLE} - ${focusLabel}，${restLabel}，${sedentaryLabel}，${checkinLabel}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '打开主界面', click: showMainWindow },
     { type: 'separator' },
@@ -549,6 +659,13 @@ function updateTrayMenu() {
       label: '确认当前专注提醒',
       enabled: Boolean(activeFocusReminder),
       click: () => acknowledgeFocusReminder(activeFocusReminder && activeFocusReminder.id)
+    },
+    { type: 'separator' },
+    { label: restLabel, enabled: false },
+    {
+      label: '确认当前休息提醒',
+      enabled: Boolean(activeRestReminder),
+      click: () => acknowledgeRestReminder(activeRestReminder && activeRestReminder.id)
     },
     { type: 'separator' },
     { label: sedentaryLabel, enabled: false },
@@ -593,6 +710,17 @@ function registerIpcHandlers() {
   });
   ipcMain.handle('focus-reminder:acknowledge', (_event, payload = {}) => acknowledgeFocusReminder(payload.sessionId));
 
+  ipcMain.handle('rest-reminder:schedule', (_event, session) => scheduleRestReminder(session));
+  ipcMain.handle('rest-reminder:cancel', (_event, payload = {}) => {
+    if (!activeRestReminder) return { ok: true };
+    if (payload.sessionId && activeRestReminder.id !== payload.sessionId) {
+      return { ok: false, reason: 'session-mismatch' };
+    }
+    clearActiveRestReminder();
+    return { ok: true };
+  });
+  ipcMain.handle('rest-reminder:acknowledge', (_event, payload = {}) => acknowledgeRestReminder(payload.sessionId));
+
   ipcMain.handle('sedentary-reminder:schedule', (_event, session) => scheduleSedentaryReminder(session));
   ipcMain.handle('sedentary-reminder:cancel', (_event, payload = {}) => {
     if (!activeSedentaryReminder) return { ok: true };
@@ -636,6 +764,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   clearActiveFocusReminder();
+  clearActiveRestReminder();
   clearActiveSedentaryReminder();
   clearAllCheckinReminders();
 });
