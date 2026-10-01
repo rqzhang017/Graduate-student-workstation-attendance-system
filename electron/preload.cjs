@@ -45,14 +45,47 @@ contextBridge.exposeInMainWorld('attendanceDesktop', {
   clearCheckinReminders() {
     return ipcRenderer.invoke('checkin-reminder:clear');
   },
-  showMainWindow() {
-    return ipcRenderer.invoke('window:show');
+  showMainWindow(sectionId = null) {
+    return ipcRenderer.invoke('window:show', { sectionId });
+  },
+  showFloatingWindow() {
+    return ipcRenderer.invoke('floating-window:show');
+  },
+  hideFloatingWindow() {
+    return ipcRenderer.invoke('floating-window:hide');
+  },
+  setFloatingCollapsed(collapsed) {
+    return ipcRenderer.invoke('floating-window:set-collapsed', { collapsed: Boolean(collapsed) });
+  },
+  getDesktopSettings() {
+    return ipcRenderer.invoke('desktop-settings:get');
+  },
+  updateDesktopSettings(settings) {
+    return ipcRenderer.invoke('desktop-settings:update', settings);
+  },
+  focusControlReady() {
+    return ipcRenderer.invoke('focus-control:ready');
+  },
+  publishFocusState(state) {
+    return ipcRenderer.invoke('focus-control:publish-state', state);
+  },
+  requestFocusState() {
+    return ipcRenderer.invoke('focus-control:get-state');
+  },
+  sendFocusCommand(action, payload = {}) {
+    return ipcRenderer.invoke('focus-control:command', { action, payload });
   },
   onFocusReminderDue(callback) {
     return on('focus-reminder:due', callback);
   },
   onFocusReminderAcknowledged(callback) {
     return on('focus-reminder:acknowledged', callback);
+  },
+  onFocusControlState(callback) {
+    return on('focus-control:state', callback);
+  },
+  onFocusControlCommand(callback) {
+    return on('focus-control:command', callback);
   },
   onRestReminderDue(callback) {
     return on('rest-reminder:due', callback);

@@ -576,3 +576,228 @@
                 }
             }
         }
+
+/* DockCat default cat assets, used under PolyForm Noncommercial License 1.0.0. */
+.cat-figure {
+    width: 232px;
+    height: 210px;
+    isolation: isolate;
+}
+
+.cat-figure:hover {
+    transform: translateY(-3px) scale(1.012);
+}
+
+.dockcat-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    filter: drop-shadow(0 18px 24px rgba(84, 58, 36, 0.13));
+}
+
+.dockcat-stage::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: -1;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.1);
+    filter: blur(5px);
+}
+
+.dockcat-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transform-origin: 50% 78%;
+    transition: opacity 0.16s ease, transform 0.2s ease;
+    user-select: none;
+}
+
+.cat-figure[data-expression="curious"] .dockcat-image-loaf,
+.cat-figure[data-expression="happy"] .dockcat-image-happy,
+.cat-figure[data-expression="trusting"] .dockcat-image-side,
+.cat-figure[data-expression="adoring"] .dockcat-image-happy {
+    opacity: 1;
+}
+
+.cat-figure.is-petted .dockcat-image,
+.cat-figure.is-fed .dockcat-image {
+    opacity: 0 !important;
+}
+
+.cat-figure.is-petted .dockcat-image-stretch {
+    opacity: 1 !important;
+    animation: dockcatStretch 0.76s ease;
+}
+
+.cat-figure.is-fed .dockcat-image-feed {
+    opacity: 1 !important;
+    animation: dockcatFeed 0.95s ease;
+}
+
+.dockcat-image-side {
+    transform: translateY(5px) scale(1.04);
+}
+
+.dockcat-image-happy {
+    transform: translateY(-6px) scale(0.94);
+}
+
+.dockcat-image-stretch {
+    transform: translateY(10px) scale(1.08);
+}
+
+.dockcat-image-feed {
+    transform: translateY(12px) scale(1.08);
+}
+
+.cat-heart-burst {
+    z-index: 5;
+}
+
+.cat-spark {
+    z-index: 6;
+    right: 0.9rem;
+    top: 0.65rem;
+    color: #f59e0b;
+}
+
+.cat-heart {
+    bottom: 92px;
+    font-size: 21px;
+}
+
+.dockcat-love-badge {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 10px 24px rgba(244, 63, 94, 0.18);
+    color: #fb7185;
+    font-size: 19px;
+    opacity: 0;
+    transform: scale(0.72) rotate(-8deg);
+}
+
+.cat-figure[data-expression="adoring"] .dockcat-love-badge {
+    opacity: 1;
+    animation: dockcatLovePulse 1.6s ease-in-out infinite;
+}
+
+.dockcat-feed-bowl {
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    z-index: 4;
+    width: 78px;
+    height: 28px;
+    border-radius: 10px 10px 18px 18px;
+    background: linear-gradient(135deg, #dbeafe, #93c5fd);
+    border: 2px solid rgba(37, 99, 235, 0.18);
+    box-shadow: inset 0 6px 10px rgba(255, 255, 255, 0.55);
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.9);
+}
+
+.dockcat-feed-bowl::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    right: -5px;
+    top: -7px;
+    height: 15px;
+    border-radius: 999px;
+    background: #eff6ff;
+    border: 2px solid rgba(37, 99, 235, 0.14);
+}
+
+.dockcat-feed-bowl span {
+    position: absolute;
+    top: -12px;
+    z-index: 2;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #f59e0b;
+}
+
+.dockcat-feed-bowl span:nth-child(1) {
+    left: 22px;
+}
+
+.dockcat-feed-bowl span:nth-child(2) {
+    left: 36px;
+    top: -15px;
+}
+
+.dockcat-feed-bowl span:nth-child(3) {
+    left: 50px;
+}
+
+.cat-figure.is-fed .dockcat-feed-bowl {
+    opacity: 1;
+    animation: dockcatBowlPop 0.95s ease;
+}
+
+.cat-figure.is-fed .dockcat-feed-bowl span {
+    animation: dockcatFoodPop 0.95s ease;
+}
+
+@keyframes catPetBounce {
+    0% { transform: translateY(0) scale(1); }
+    35% { transform: translateY(-4px) scale(1.014); }
+    70% { transform: translateY(1px) scale(0.998); }
+    100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes catFedBounce {
+    0% { transform: translateY(0) scale(1); }
+    32% { transform: translateY(-6px) scale(1.02); }
+    68% { transform: translateY(1px) scale(1); }
+    100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes dockcatStretch {
+    0% { transform: translateY(10px) scale(1.08); }
+    38% { transform: translateY(6px) translateX(-2px) scale(1.105, 1.03); }
+    70% { transform: translateY(11px) translateX(1px) scale(1.07); }
+    100% { transform: translateY(10px) scale(1.08); }
+}
+
+@keyframes dockcatFeed {
+    0% { transform: translateY(12px) scale(1.08); }
+    35% { transform: translateY(5px) scale(1.1); }
+    66% { transform: translateY(14px) scale(1.075); }
+    100% { transform: translateY(12px) scale(1.08); }
+}
+
+@keyframes dockcatLovePulse {
+    0%, 100% { transform: scale(0.9) rotate(-8deg); opacity: 0.82; }
+    50% { transform: scale(1.08) rotate(4deg); opacity: 1; }
+}
+
+@keyframes dockcatBowlPop {
+    0% { transform: translateX(-50%) translateY(12px) scale(0.82); opacity: 0; }
+    28% { transform: translateX(-50%) translateY(0) scale(1.04); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(8px) scale(0.9); opacity: 0; }
+}
+
+@keyframes dockcatFoodPop {
+    0%, 100% { transform: translateY(0) scale(1); }
+    32% { transform: translateY(-5px) scale(1.18); }
+    62% { transform: translateY(1px) scale(0.96); }
+}

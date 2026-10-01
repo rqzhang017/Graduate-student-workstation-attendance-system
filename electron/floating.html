@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>专注正计时</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      background: #f8fbff;
+      color: #18324d;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    button,
+    input { font: inherit; }
+
+    button { cursor: pointer; }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.58;
+    }
+
+    .window {
+      height: 100vh;
+      border: 1px solid #bfd8f3;
+      border-radius: 13px;
+      background: #f8fbff;
+      box-shadow: 0 10px 28px rgba(31, 78, 121, 0.24);
+      overflow: hidden;
+    }
+
+    .titlebar {
+      height: 48px;
+      padding: 0 9px 0 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: linear-gradient(135deg, #edf6ff, #f8fbff 70%);
+      -webkit-app-region: drag;
+    }
+
+    .identity {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14);
+    }
+
+    .status-dot.running {
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+    }
+
+    .status-dot.paused {
+      background: #f59e0b;
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+    }
+
+    .status-dot.countdown {
+      background: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    }
+
+    .identity-copy { min-width: 0; }
+
+    .window-title {
+      font-size: 12px;
+      line-height: 1.2;
+      color: #64748b;
+    }
+
+    .compact-status {
+      max-width: 235px;
+      margin-top: 2px;
+      overflow: hidden;
+      color: #1e3a5f;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .window-actions {
+      display: flex;
+      gap: 4px;
+      flex: 0 0 auto;
+      -webkit-app-region: no-drag;
+    }
+
+    .icon-button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: #e1edfa;
+      color: #315d88;
+      font-size: 17px;
+      line-height: 28px;
+    }
+
+    .icon-button:hover { background: #cfe2f6; }
+
+    .content {
+      position: relative;
+      height: calc(100vh - 48px);
+      min-height: 0;
+      padding: 9px 12px 11px;
+      border-top: 1px solid #dbeafe;
+      -webkit-app-region: no-drag;
+    }
+
+    .view {
+      height: 100%;
+      display: none;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .view.visible { display: flex; }
+
+    .idle-view input {
+      min-width: 0;
+      height: 38px;
+      flex: 1;
+      padding: 0 11px;
+      border: 1px solid #bed4ea;
+      border-radius: 10px;
+      outline: none;
+      background: #fff;
+      color: #18324d;
+    }
+
+    .idle-view input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.13);
+    }
+
+    .primary-button,
+    .secondary-button,
+    .danger-button {
+      height: 38px;
+      padding: 0 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .primary-button {
+      border: 1px solid #2563eb;
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .primary-button:hover { background: #1d4ed8; }
+
+    .secondary-button {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .secondary-button:hover { background: #dbeafe; }
+
+    .danger-button {
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      color: #be123c;
+    }
+
+    .danger-button:hover { background: #ffe4e6; }
+
+    .active-view {
+      justify-content: space-between;
+    }
+
+    .timer-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .timer {
+      color: #173d66;
+      font-size: 26px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      line-height: 1.1;
+    }
+
+    .session-title {
+      margin-top: 5px;
+      overflow: hidden;
+      color: #64748b;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .control-buttons {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .control-buttons button {
+      height: 34px;
+      padding: 0 11px;
+      font-size: 13px;
+    }
+
+    .countdown-view {
+      justify-content: space-between;
+    }
+
+    .countdown-copy {
+      min-width: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .countdown-copy strong {
+      display: block;
+      color: #1e3a5f;
+      font-size: 16px;
+    }
+
+    .notice {
+      position: absolute;
+      right: 12px;
+      bottom: 4px;
+      left: 12px;
+      overflow: hidden;
+      color: #b45309;
+      font-size: 11px;
+      line-height: 1.2;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    body.warning .window {
+      border-color: #f59e0b;
+      box-shadow: 0 10px 28px rgba(180, 83, 9, 0.24);
+    }
+
+    body.warning .titlebar {
+      background: linear-gradient(135deg, #fff7ed, #fffbeb 70%);
+    }
+
+    body.warning .timer,
+    body.warning .compact-status { color: #b45309; }
+
+    body.collapsed .titlebar { height: 100vh; }
+    body.collapsed .content { display: none; }
+    body.collapsed .window-title { display: none; }
+    body.collapsed .compact-status { max-width: 255px; margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <header class="titlebar">
+      <div class="identity">
+        <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        <div class="identity-copy">
+          <div class="window-title">专注正计时</div>
+          <div id="compact-status" class="compact-status">未开始</div>
+        </div>
+      </div>
+      <div class="window-actions">
+        <button id="collapse-window" class="icon-button" type="button" title="折叠悬浮窗" aria-label="折叠悬浮窗">−</button>
+        <button id="hide-window" class="icon-button" type="button" title="隐藏悬浮窗" aria-label="隐藏悬浮窗">×</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section id="idle-view" class="view idle-view visible" aria-label="开始正计时">
+        <input id="session-name" type="text" maxlength="120" autocomplete="off" placeholder="名称（选填）" aria-label="专注名称（选填）">
+        <button id="start-session" class="primary-button" type="button">开始</button>
+      </section>
+
+      <section id="stopwatch-view" class="view active-view" aria-label="正计时控制">
+        <div class="timer-copy">
+          <div id="stopwatch-time" class="timer">00:00:00</div>
+          <div id="stopwatch-title" class="session-title">无标题专注</div>
+        </div>
+        <div class="control-buttons">
+          <button id="pause-session" class="secondary-button" type="button">暂停</button>
+          <button id="resume-session" class="secondary-button" type="button">继续</button>
+          <button id="finish-session" class="danger-button" type="button">结束</button>
+        </div>
+      </section>
+
+      <section id="countdown-view" class="view countdown-view" aria-label="倒计时状态">
+        <div class="countdown-copy">
+          <strong id="countdown-time">剩余 00:00</strong>
+          倒计时请在主应用中操作
+        </div>
+        <button id="open-main" class="secondary-button" type="button">打开主应用</button>
+      </section>
+
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <script src="./floating.js"></script>
+</body>
+</html>

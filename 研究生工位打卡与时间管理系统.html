@@ -196,63 +196,23 @@
 
                     <div class="mt-6">
                         <div class="bg-blue-50 rounded-lg p-5 cat-card">
-                            <div class="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-6 items-center">
-                                <button type="button" id="cat-figure-button" class="cat-figure" aria-label="摸摸猫咪">
+                            <div class="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-6 items-center">
+                                <button type="button" id="cat-figure-button" class="cat-figure" data-expression="curious" aria-label="摸摸猫咪">
                                     <div class="cat-heart-burst" id="cat-heart-burst"></div>
                                     <div class="cat-spark">✦</div>
-                                    <svg class="cat-svg" viewBox="0 0 200 200" aria-hidden="true">
-                                        <g class="cat-tail-group">
-                                            <path class="cat-orange cat-outline" d="M144 138c22 2 34 18 28 33-3 8-12 13-21 13 11-7 11-16 5-23-5-6-12-8-20-9z"/>
-                                        </g>
-                                        <g class="cat-body-group">
-                                            <ellipse class="cat-cream cat-outline" cx="101" cy="135" rx="46" ry="38"/>
-                                            <ellipse class="cat-orange-soft" cx="100" cy="142" rx="24" ry="18"/>
-                                            <ellipse class="cat-cream cat-outline" cx="79" cy="162" rx="11" ry="9"/>
-                                            <ellipse class="cat-cream cat-outline" cx="121" cy="162" rx="11" ry="9"/>
-                                            <ellipse class="cat-pink" cx="79" cy="164" rx="4.2" ry="3.2"/>
-                                            <ellipse class="cat-pink" cx="121" cy="164" rx="4.2" ry="3.2"/>
-                                        </g>
-                                        <g class="cat-ear-group">
-                                            <path class="cat-orange cat-outline" d="M62 56l18-23 13 30z"/>
-                                            <path class="cat-orange cat-outline" d="M138 56l-18-23-13 30z"/>
-                                            <path class="cat-pink" d="M69 54l11-14 7 16z"/>
-                                            <path class="cat-pink" d="M131 54l-11-14-7 16z"/>
-                                        </g>
-                                        <g class="cat-head-group">
-                                            <circle class="cat-cream cat-outline" cx="100" cy="83" r="44"/>
-                                            <ellipse class="cat-orange" cx="79" cy="68" rx="11" ry="8"/>
-                                            <ellipse class="cat-orange" cx="121" cy="68" rx="11" ry="8"/>
-                                            <ellipse class="cat-orange-soft" cx="100" cy="96" rx="22" ry="17"/>
-                                            <ellipse class="cat-pink" cx="73" cy="95" rx="8" ry="5"/>
-                                            <ellipse class="cat-pink" cx="127" cy="95" rx="8" ry="5"/>
-
-                                            <g class="cat-eye-open">
-                                                <ellipse class="cat-dark cat-eye-shape" cx="83" cy="81" rx="7" ry="10"/>
-                                                <ellipse class="cat-dark cat-eye-shape" cx="117" cy="81" rx="7" ry="10"/>
-                                                <ellipse fill="rgba(255,255,255,0.78)" cx="85" cy="77" rx="1.8" ry="2.8"/>
-                                                <ellipse fill="rgba(255,255,255,0.78)" cx="119" cy="77" rx="1.8" ry="2.8"/>
-                                            </g>
-
-                                            <g class="cat-eye-smile" opacity="0">
-                                                <path class="cat-mouth-line" d="M74 82c4-7 14-7 18 0"/>
-                                                <path class="cat-mouth-line" d="M108 82c4-7 14-7 18 0"/>
-                                            </g>
-
-                                            <g class="cat-eye-heart" opacity="0">
-                                                <path fill="#fb7185" d="M76 79c0-4 3-7 7-7 3 0 5 2 6 4 1-2 3-4 6-4 4 0 7 3 7 7 0 9-13 15-13 15S76 88 76 79z"/>
-                                                <path fill="#fb7185" d="M110 79c0-4 3-7 7-7 3 0 5 2 6 4 1-2 3-4 6-4 4 0 7 3 7 7 0 9-13 15-13 15s-13-6-13-15z"/>
-                                            </g>
-
-                                            <path class="cat-whisker" d="M62 98l-18-4"/>
-                                            <path class="cat-whisker" d="M62 104l-19 2"/>
-                                            <path class="cat-whisker" d="M138 98l18-4"/>
-                                            <path class="cat-whisker" d="M138 104l19 2"/>
-
-                                            <path class="cat-pink cat-outline" d="M100 92c4 0 7 3 7 5 0 3-3 5-7 5s-7-2-7-5c0-2 3-5 7-5z"/>
-                                            <path class="cat-mouth-line cat-mouth-smile" d="M90 108c5 7 15 7 20 0"/>
-                                            <path class="cat-mouth-line cat-mouth-big-smile" d="M86 106c7 11 21 11 28 0" opacity="0"/>
-                                        </g>
-                                    </svg>
+                                    <div class="dockcat-stage" aria-hidden="true">
+                                        <img class="dockcat-image dockcat-image-loaf" src="./assets/dockcat/loaf.png" alt="" draggable="false">
+                                        <img class="dockcat-image dockcat-image-side" src="./assets/dockcat/side.png" alt="" draggable="false">
+                                        <img class="dockcat-image dockcat-image-happy" src="./assets/dockcat/happy.png" alt="" draggable="false">
+                                        <img class="dockcat-image dockcat-image-stretch" src="./assets/dockcat/stretch.png" alt="" draggable="false">
+                                        <img class="dockcat-image dockcat-image-feed" src="./assets/dockcat/feed.png" alt="" draggable="false">
+                                        <div class="dockcat-love-badge">♥</div>
+                                        <div class="dockcat-feed-bowl">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    </div>
                                 </button>
                                 <div>
                                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
@@ -507,77 +467,188 @@
 
                 <!-- 专注时长模块 -->
                 <section id="focus-section" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                        <i class="fa fa-hourglass-half mr-2 text-primary"></i>专注时长
-                    </h2>
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fa fa-hourglass-half mr-2 text-primary"></i>专注时长
+                        </h2>
+                        <div class="flex gap-2" role="tablist" aria-label="专注计时模式">
+                            <button class="focus-mode-tab bg-primary text-white py-2 px-5 rounded-lg font-medium" data-mode="countdown" role="tab" aria-selected="true">倒计时</button>
+                            <button class="focus-mode-tab bg-gray-200 text-gray-700 py-2 px-5 rounded-lg font-medium" data-mode="stopwatch" role="tab" aria-selected="false">正计时</button>
+                        </div>
+                    </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-blue-50 rounded-lg p-6">
-                            <h3 class="text-lg font-semibold text-primary mb-4">开始一段专注</h3>
-                            <div class="flex flex-col md:flex-row gap-3 items-end">
-                                <div class="w-full">
-                                    <label for="focus-duration-input" class="block text-sm font-medium text-gray-700 mb-1">专注时长（分钟）</label>
-                                    <input id="focus-duration-input" type="number" min="1" max="480" value="25" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                                </div>
-                                <button id="start-focus-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
-                                    开始专注
-                                </button>
-                            </div>
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="25">25 分钟</button>
-                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="45">45 分钟</button>
-                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="60">60 分钟</button>
-                                <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="90">90 分钟</button>
-                            </div>
-                            <div class="mt-4 bg-white rounded-lg p-4 border border-blue-200">
-                                <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-                                    <div>
-                                        <div class="font-medium text-gray-800">专注完成提醒默认开启</div>
-                                        <div id="focus-reminder-status" class="text-sm text-gray-600 mt-1">页面弹窗、声音和标题提醒已开启。</div>
+                    <div id="focus-countdown-panel" role="tabpanel">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="bg-blue-50 rounded-lg p-6">
+                                <h3 class="text-lg font-semibold text-primary mb-4">开始一段倒计时专注</h3>
+                                <div class="flex flex-col md:flex-row gap-3 items-end">
+                                    <div class="w-full">
+                                        <label for="focus-duration-input" class="block text-sm font-medium text-gray-700 mb-1">专注时长（分钟）</label>
+                                        <input id="focus-duration-input" type="number" min="1" max="480" value="25" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
                                     </div>
-                                    <button id="enable-focus-notifications" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg text-sm font-medium btn-shadow transition-all">
-                                        开启桌面通知
+                                    <button id="start-focus-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                        开始专注
+                                    </button>
+                                </div>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="3">3 分钟</button>
+                                    <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="5">5 分钟</button>
+                                    <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="10">10 分钟</button>
+                                    <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="20">20 分钟</button>
+                                    <button class="focus-preset bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg text-sm" data-minutes="45">45 分钟</button>
+                                </div>
+                                <div class="mt-4 bg-white rounded-lg p-4 border border-blue-200">
+                                    <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                                        <div>
+                                            <div class="font-medium text-gray-800">倒计时完成提醒默认开启</div>
+                                            <div id="focus-reminder-status" class="text-sm text-gray-600 mt-1">页面弹窗、声音和标题提醒已开启。</div>
+                                        </div>
+                                        <button id="enable-focus-notifications" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg text-sm font-medium btn-shadow transition-all">
+                                            开启桌面通知
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-blue-50 rounded-lg p-6">
+                                <h3 class="text-lg font-semibold text-primary mb-4">当前倒计时</h3>
+                                <div class="text-5xl font-bold text-primary text-center mb-3" id="focus-countdown-display">00:00</div>
+                                <div class="text-center text-sm text-gray-600 mb-4" id="focus-session-status">当前没有进行中的专注计时</div>
+                                <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                    <div id="focus-progress-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-center gap-3">
+                                    <button id="stop-focus-session" class="bg-danger hover:bg-danger/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all hidden">
+                                        提前结束并记录
                                     </button>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="bg-blue-50 rounded-lg p-6">
-                            <h3 class="text-lg font-semibold text-primary mb-4">当前倒计时</h3>
-                            <div class="text-5xl font-bold text-primary text-center mb-3" id="focus-countdown-display">00:00</div>
-                            <div class="text-center text-sm text-gray-600 mb-4" id="focus-session-status">当前没有进行中的专注计时</div>
-                            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
-                                <div id="focus-progress-bar" class="bg-primary h-3 rounded-full transition-all" style="width: 0%"></div>
-                            </div>
-                            <div class="flex justify-center gap-3">
-                                <button id="stop-focus-session" class="bg-danger hover:bg-danger/90 text-white py-2 px-6 rounded-lg font-medium btn-shadow transition-all hidden">
-                                    提前结束并记录
+                    <div id="focus-stopwatch-panel" class="hidden" role="tabpanel">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="bg-blue-50 rounded-lg p-6">
+                                <h3 class="text-lg font-semibold text-primary mb-2">开始一段正计时专注</h3>
+                                <p class="text-sm text-gray-600 mb-4">名称选填；锁屏、睡眠或退出应用后，运行中的有效时长仍按时间戳继续累计。</p>
+                                <label for="stopwatch-session-name" class="block text-sm font-medium text-gray-700 mb-1">专注名称（选填）</label>
+                                <input id="stopwatch-session-name" type="text" maxlength="120" placeholder="留空将显示“无标题专注”" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                <button id="start-stopwatch-session" class="mt-4 w-full bg-primary hover:bg-primary/90 text-white py-3 px-6 rounded-lg font-medium btn-shadow transition-all">
+                                    开始正计时
                                 </button>
+                            </div>
+
+                            <div class="bg-blue-50 rounded-lg p-6">
+                                <h3 class="text-lg font-semibold text-primary mb-4">当前正计时</h3>
+                                <div class="text-5xl font-bold text-primary text-center mb-3" id="stopwatch-display">00:00:00</div>
+                                <div class="text-center text-sm text-gray-600 mb-4" id="stopwatch-session-status">当前没有进行中的正计时</div>
+                                <div id="stopwatch-long-warning" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 mb-4">
+                                    已连续累计超过 12 小时，请确认是否忘记结束。计时不会自动停止。
+                                </div>
+                                <div class="flex flex-wrap justify-center gap-3">
+                                    <button id="pause-stopwatch-session" class="bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg font-medium hidden">暂停</button>
+                                    <button id="resume-stopwatch-session" class="bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg font-medium hidden">继续</button>
+                                    <button id="finish-stopwatch-session" class="bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-lg font-medium btn-shadow hidden">结束并记录</button>
+                                    <button id="abandon-stopwatch-session" class="bg-danger hover:bg-danger/90 text-white py-2 px-4 rounded-lg font-medium hidden">放弃不记录</button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h3 class="text-lg font-semibold text-primary mb-3">今日专注概览</h3>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-4 text-center">
-                                    <div class="text-3xl font-bold text-primary mb-1" id="focus-today-total">0</div>
-                                    <div class="text-sm text-gray-600">今日专注分钟</div>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 text-center">
-                                    <div class="text-3xl font-bold text-primary mb-1" id="focus-today-count">0</div>
-                                    <div class="text-sm text-gray-600">完成场次</div>
-                                </div>
+                    <div id="focus-migration-notice" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900 mb-6"></div>
+
+                    <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold text-primary mb-3">本工作日专注概览</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-white rounded-lg p-4 text-center">
+                                <div class="text-2xl font-bold text-primary mb-1" id="focus-today-total">00:00:00</div>
+                                <div class="text-sm text-gray-600">今日累计</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 text-center">
+                                <div class="text-2xl font-bold text-primary mb-1" id="focus-today-count">0</div>
+                                <div class="text-sm text-gray-600">今日场次</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 text-center">
+                                <div class="text-2xl font-bold text-primary mb-1" id="focus-today-countdown">0 分钟</div>
+                                <div class="text-sm text-gray-600">倒计时</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 text-center">
+                                <div class="text-2xl font-bold text-primary mb-1" id="focus-today-stopwatch">0 分钟</div>
+                                <div class="text-sm text-gray-600">正计时</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                            <div>
+                                <h3 class="text-lg font-semibold text-primary">本工作日专注记录</h3>
+                                <p class="text-sm text-gray-600 mt-1">跨凌晨翻页边界的会话保留为一条记录，统计时自动拆分。</p>
+                            </div>
+                            <button id="add-focus-record" class="bg-white border border-blue-200 text-primary py-2 px-4 rounded-lg font-medium">
+                                <i class="fa fa-plus mr-2"></i>补录记录
+                            </button>
+                        </div>
+                        <div id="focus-today-records" class="space-y-2 text-sm text-gray-700">
+                            <div class="text-gray-500">暂无专注记录</div>
+                        </div>
+                    </div>
+
+                    <div id="focus-analysis" data-days="7" class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-primary">专注汇总分析</h3>
+                                <p id="focus-analysis-period-label" class="text-sm text-gray-600 mt-1">最近 7 个工作日</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="focus-analysis-range bg-primary text-white py-2 px-4 rounded-lg font-medium" data-days="7">7 天</button>
+                                <button class="focus-analysis-range bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium" data-days="30">30 天</button>
                             </div>
                         </div>
 
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h3 class="text-lg font-semibold text-primary mb-3">今日专注记录</h3>
-                            <div id="focus-today-records" class="space-y-2 text-sm text-gray-700">
-                                <div class="text-gray-500">暂无专注记录</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">累计时长</div><div id="focus-analysis-total" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">日均时长</div><div id="focus-analysis-average" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">最长单次</div><div id="focus-analysis-longest" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">活跃天数</div><div id="focus-analysis-active-days" class="text-2xl font-bold text-primary mt-1">0 天</div></div>
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">近 7 天环比</div><div id="focus-analysis-week-change" class="text-xl font-bold text-primary mt-1">持平 0%</div></div>
+                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">近 30 天环比</div><div id="focus-analysis-month-change" class="text-xl font-bold text-primary mt-1">持平 0%</div></div>
+                            <div class="bg-white rounded-lg p-4" style="grid-column: span 2;"><div class="text-sm text-gray-600">来源占比</div><div id="focus-analysis-source-ratio" class="text-xl font-bold text-primary mt-1">暂无来源数据</div></div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-4 mb-4">
+                            <h4 class="font-medium text-gray-800 mb-3">每日趋势</h4>
+                            <div id="focus-trend-bars" class="flex gap-2" style="align-items:flex-end; min-height:142px;"></div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-4">
+                            <h4 class="font-medium text-gray-800 mb-3">近 12 周绝对时长热力图</h4>
+                            <div id="focus-heatmap" style="display:grid; grid-template-columns:repeat(14,minmax(0,1fr)); gap:6px;"></div>
+                            <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                                <span>灰：0</span><span>浅蓝：少于 1 小时</span><span>蓝：1–2 小时</span><span>深蓝：2–4 小时</span><span>藏蓝：4 小时以上</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="focus-desktop-settings" class="hidden bg-blue-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-primary mb-2">悬浮窗与桌面设置</h3>
+                        <p class="text-sm text-gray-600 mb-4">悬浮窗只控制正计时；倒计时运行时只显示状态和“打开主应用”。</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label class="bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-700">
+                                <input id="focus-auto-launch" type="checkbox">
+                                <span>Windows 登录后自动启动，仅显示悬浮窗</span>
+                            </label>
+                            <label class="bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-700">
+                                <input id="focus-shortcut-enabled" type="checkbox">
+                                <span>启用悬浮窗显示/隐藏快捷键</span>
+                            </label>
+                        </div>
+                        <div class="mt-4 flex flex-col md:flex-row gap-3 md:items-center">
+                            <input id="focus-shortcut" type="text" value="Ctrl+Alt+T" placeholder="例如 Ctrl+Alt+T" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            <button id="save-focus-desktop-settings" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow">保存桌面设置</button>
+                            <button id="show-focus-floating-window" class="bg-white border border-blue-200 text-primary py-2 px-5 rounded-lg font-medium">显示悬浮窗</button>
+                        </div>
+                        <p id="focus-desktop-status" class="mt-3 text-sm text-gray-500">正在读取桌面设置…</p>
                     </div>
                 </section>
 
@@ -898,7 +969,7 @@
                     <!-- 工作日翻页时刻 -->
                     <div class="bg-blue-50 rounded-lg p-4 mb-6">
                         <h3 class="text-lg font-semibold text-primary mb-2">工作日翻页时刻</h3>
-                        <p class="text-sm text-gray-600 mb-3">凌晨几点之前仍算前一天的工作日（默认 4 点）。适用于深夜工作后的晚上下班打卡，不影响专注/任务/手机克制的自然日计算。</p>
+                        <p class="text-sm text-gray-600 mb-3">凌晨几点之前仍算前一天的工作日（默认 4 点）。适用于深夜工作后的晚上下班打卡，也用于专注会话的跨日拆分；任务与手机克制仍按自然日统计。</p>
                         <div class="flex items-center gap-3">
                             <label class="text-sm text-gray-700 font-medium" for="rules-day-rollover-hour">翻页时刻（0–8 点）</label>
                             <input id="rules-day-rollover-hour" type="number" min="0" max="8" step="1"
@@ -1025,6 +1096,65 @@
         </div>
     </div>
 
+    <!-- 专注记录补录 / 编辑弹窗 -->
+    <div id="focus-record-editor" class="fixed inset-0 hidden items-center justify-center px-4" style="z-index: 70; background: rgba(0, 0, 0, 0.4);">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full" style="max-width: 44rem; max-height: 92vh; overflow: auto;">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <h3 id="focus-editor-heading" class="text-xl font-bold text-gray-800">补录专注记录</h3>
+                    <p class="text-sm text-gray-500 mt-1">有效时长按起止时间扣除暂停计算，并按工作日翻页时刻拆分统计。</p>
+                </div>
+                <button id="close-focus-editor" class="text-gray-500 hover:bg-gray-100 text-xl" aria-label="关闭专注记录编辑弹窗">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+
+            <div id="focus-editor-legacy-note" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 mb-4">
+                这是旧版记录，只能修正原本存在的日期、时间和分钟数事实；不能补造标题、来源或秒级精度。
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="text-sm text-gray-700 font-medium">
+                    专注名称（选填）
+                    <input id="focus-editor-title" type="text" maxlength="120" placeholder="无标题专注" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    来源
+                    <select id="focus-editor-source" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="stopwatch">正计时</option>
+                        <option value="countdown">倒计时</option>
+                    </select>
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    开始时间
+                    <input id="focus-editor-start" type="datetime-local" step="1" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    结束时间
+                    <input id="focus-editor-end" type="datetime-local" step="1" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    暂停合计（分钟）
+                    <input id="focus-editor-pause-minutes" type="number" min="0" step="0.001" value="0" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </label>
+                <label class="text-sm text-gray-700 font-medium">
+                    有效时长（分钟）
+                    <input id="focus-editor-duration" type="number" min="0.001" step="0.001" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>
+                </label>
+                <label id="focus-editor-legacy-date-wrap" class="hidden text-sm text-gray-700 font-medium">
+                    旧记录工作日
+                    <input id="focus-editor-legacy-date" type="date" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </label>
+            </div>
+
+            <div id="focus-editor-duration-preview" class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">有效时长：0 分钟</div>
+            <div class="mt-6 flex flex-col md:flex-row justify-end gap-3">
+                <button id="cancel-focus-editor" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-5 rounded-lg font-medium">取消</button>
+                <button id="save-focus-editor" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow">保存记录</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 手动补卡弹窗 -->
     <div id="manual-checkin-modal" class="fixed inset-0 hidden items-center justify-center px-4" style="z-index: 70; background: rgba(0, 0, 0, 0.4);">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full" style="max-width: 42rem;">
@@ -1089,6 +1219,7 @@
         </div>
     </div>
 
+    <script src="./assets/focus-ledger.js" defer></script>
     <script src="./assets/app.js" defer></script>
 </body>
 </html>

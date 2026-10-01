@@ -7,6 +7,8 @@
         let currentTask = null; // 当前进行中的任务
         let rulesConfig = null; // 打卡规则配置
         let focusData = {}; // 专注记录
+        let focusLedger = null; // 统一专注会话账本（倒计时 + 正计时）
+        let focusSettings = { lastMode: 'countdown' }; // 专注模块偏好
         let currentFocusSession = null; // 当前专注会话
         let restData = {}; // 休息记录
         let currentRestSession = null; // 当前休息会话
@@ -36,6 +38,9 @@
         let chartJsLoadPromise = null; // Chart.js 懒加载 Promise
         let statsDataCache = {}; // 统计数据缓存
         let statsDataDirty = true; // 统计缓存失效标记
+        let focusControlNotice = ''; // 悬浮窗命令反馈
+        let focusControlNoticeTimer = null;
+        let lastFocusAnalysisMinute = null;
         const domCache = new Map();
         const tickHandlers = new Map();
         let appTickTimer = null;
@@ -43,7 +48,9 @@
         const SEDENTARY_SIT_MINUTES = 45;
         const SEDENTARY_STAND_MINUTES = 5;
         const CHECKIN_REMINDER_LEAD_MINUTES = 10;
+        const FOCUS_LONG_WARNING_MS = 12 * 60 * 60 * 1000;
         const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js';
+        const FOCUS_LEDGER_API = window.FocusLedger;
         const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'rest-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
         const NAV_BUTTON_IDS = ['nav-checkin', 'nav-phone', 'nav-tasks', 'nav-focus', 'nav-rest', 'nav-sedentary', 'nav-leave', 'nav-stats', 'nav-rules'];
         
@@ -58,6 +65,9 @@
             currentTask: 'currentTask',
             rulesConfig: 'rulesConfig',
             focusData: 'focusData',
+            focusDataLegacyBackup: 'focusDataBeforeUnifiedLedgerV1',
+            focusLedger: 'focusLedger',
+            focusSettings: 'focusSettings',
             currentFocusSession: 'currentFocusSession',
             restData: 'restData',
             currentRestSession: 'currentRestSession',
@@ -114,6 +124,10 @@
             return window.attendanceDesktop && window.attendanceDesktop.isAvailable
                 ? window.attendanceDesktop
                 : null;
+        }
+
+        function isFiniteNumericValue(value) {
+            return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
         }
 
         function setButtonState(button, enabled) {
@@ -603,6 +617,73 @@
                 sedentaryData[date] = { completedCycles: 0, totalStandMinutes: 0 };
             }
         }
+
+        function normalizeFocusSettings(rawSettings) {
+            const settings = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
+            return {
+                lastMode: settings.lastMode === 'stopwatch' ? 'stopwatch' : 'countdown'
+            };
+        }
+
+        function normalizeCurrentFocusSession(rawSession) {
+            if (!rawSession || typeof rawSession !== 'object' || !rawSession.id || !rawSession.startTimestamp) {
+                return null;
+            }
+
+            const mode = rawSession.mode === 'stopwatch' || rawSession.source === 'stopwatch'
+                ? 'stopwatch'
+                : 'countdown';
+            const pauses = Array.isArray(rawSession.pauses) ? rawSession.pauses.filter(Boolean) : [];
+            const normalized = {
+                ...rawSession,
+                mode,
+                source: mode,
+                status: rawSession.status === 'paused' || rawSession.isPaused ? 'paused' : 'running',
+                title: typeof rawSession.title === 'string' ? rawSession.title.slice(0, 120) : '',
+                pauses
+            };
+
+            if (mode === 'countdown') {
+                normalized.plannedMinutes = Math.max(1, Number(rawSession.plannedMinutes || 1));
+                normalized.plannedDurationMs = normalized.plannedMinutes * FOCUS_LEDGER_API.MINUTE_MS;
+                normalized.endTimestamp = Number(rawSession.endTimestamp);
+                if (!Number.isFinite(normalized.endTimestamp)) return null;
+            } else {
+                normalized.endTimestamp = null;
+                normalized.plannedMinutes = null;
+                normalized.plannedDurationMs = null;
+                if (normalized.status === 'paused' && !pauses.some(pause => !isFiniteNumericValue(pause.endTimestamp))) {
+                    pauses.push({ startTimestamp: Date.now(), endTimestamp: null });
+                }
+            }
+
+            return normalized;
+        }
+
+        function backupLegacyFocusData(rawFocusData) {
+            if (localStorage.getItem(STORAGE_KEYS.focusDataLegacyBackup)) return;
+            const hasLegacyData = rawFocusData && Object.values(rawFocusData).some(day => {
+                return day && (Number(day.totalMinutes || 0) !== 0 || (Array.isArray(day.sessions) && day.sessions.length > 0));
+            });
+            if (!hasLegacyData) return;
+
+            try {
+                localStorage.setItem(STORAGE_KEYS.focusDataLegacyBackup, JSON.stringify({
+                    version: 1,
+                    backedUpAt: new Date().toISOString(),
+                    focusData: rawFocusData
+                }));
+            } catch (error) {
+                console.warn('旧专注数据自动备份失败，迁移仍会继续。', error);
+            }
+        }
+
+        function syncFocusCompatibilityData() {
+            if (!FOCUS_LEDGER_API || !focusLedger) return;
+            focusData = FOCUS_LEDGER_API.buildCompatibilityFocusData(focusLedger, dayRolloverHour);
+            const today = FOCUS_LEDGER_API.workDayKey(Date.now(), dayRolloverHour);
+            if (!focusData[today]) focusData[today] = { totalMinutes: 0, sessions: [] };
+        }
         
         function loadAppState() {
             const snapshot = safeParseJSON(localStorage.getItem(STORAGE_KEYS.appState), null)
@@ -621,6 +702,8 @@
                 currentTask: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentTask), null),
                 rulesConfig: safeParseJSON(localStorage.getItem(STORAGE_KEYS.rulesConfig), createDefaultRulesConfig()),
                 focusData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusData), {}),
+                focusLedger: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusLedger), null),
+                focusSettings: safeParseJSON(localStorage.getItem(STORAGE_KEYS.focusSettings), { lastMode: 'countdown' }),
                 currentFocusSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentFocusSession), null),
                 restData: safeParseJSON(localStorage.getItem(STORAGE_KEYS.restData), {}),
                 currentRestSession: safeParseJSON(localStorage.getItem(STORAGE_KEYS.currentRestSession), null),
@@ -643,7 +726,14 @@
             currentTask = state.currentTask || null;
             rulesConfig = normalizeRulesConfig(state.rulesConfig || createDefaultRulesConfig());
             focusData = state.focusData || {};
-            currentFocusSession = state.currentFocusSession || null;
+            if (state.focusLedger && typeof state.focusLedger === 'object') {
+                focusLedger = FOCUS_LEDGER_API.normalizeLedger(state.focusLedger);
+            } else {
+                backupLegacyFocusData(focusData);
+                focusLedger = FOCUS_LEDGER_API.migrateLegacyFocusData(focusData);
+            }
+            focusSettings = normalizeFocusSettings(state.focusSettings);
+            currentFocusSession = normalizeCurrentFocusSession(state.currentFocusSession);
             restData = state.restData || {};
             currentRestSession = state.currentRestSession || null;
             sedentaryData = state.sedentaryData || {};
@@ -651,6 +741,7 @@
             catData = state.catData || { affection: 0, fedRecords: {} };
             dayRolloverHour = (typeof state.dayRolloverHour === 'number' && state.dayRolloverHour >= 0 && state.dayRolloverHour <= 8)
                 ? state.dayRolloverHour : 4;
+            syncFocusCompatibilityData();
 
             // 确保phoneResistData格式正确
             if (!phoneResistData.records) {
@@ -694,8 +785,9 @@
         }
         
         function createAppStateSnapshot() {
+            syncFocusCompatibilityData();
             return {
-                version: 2,
+                version: 3,
                 savedAt: new Date().toISOString(),
                 checkinData,
                 phoneResistData,
@@ -705,6 +797,8 @@
                 currentTask,
                 rulesConfig,
                 focusData,
+                focusLedger,
+                focusSettings,
                 currentFocusSession,
                 restData,
                 currentRestSession,
@@ -726,6 +820,8 @@
             localStorage.setItem(STORAGE_KEYS.currentTask, JSON.stringify(currentTask));
             localStorage.setItem(STORAGE_KEYS.rulesConfig, JSON.stringify(rulesConfig));
             localStorage.setItem(STORAGE_KEYS.focusData, JSON.stringify(focusData));
+            localStorage.setItem(STORAGE_KEYS.focusLedger, JSON.stringify(focusLedger));
+            localStorage.setItem(STORAGE_KEYS.focusSettings, JSON.stringify(focusSettings));
             localStorage.setItem(STORAGE_KEYS.currentFocusSession, JSON.stringify(currentFocusSession));
             localStorage.setItem(STORAGE_KEYS.restData, JSON.stringify(restData));
             localStorage.setItem(STORAGE_KEYS.currentRestSession, JSON.stringify(currentRestSession));
@@ -831,13 +927,66 @@
 
         // 获取逻辑工作日字符串：凌晨 dayRolloverHour 点前算前一天
         function getWorkDayString() {
-            const now = new Date();
-            if (now.getHours() < dayRolloverHour) {
-                const yesterday = new Date(now);
-                yesterday.setDate(yesterday.getDate() - 1);
-                return formatLocalDate(yesterday);
-            }
-            return formatLocalDate(now);
+            return FOCUS_LEDGER_API.workDayKey(Date.now(), dayRolloverHour);
+        }
+
+        function getFocusAggregate(now = Date.now(), includeActive = true) {
+            return FOCUS_LEDGER_API.aggregateLedger(
+                focusLedger,
+                includeActive ? currentFocusSession : null,
+                dayRolloverHour,
+                now
+            );
+        }
+
+        function getFocusDurationForWorkDay(dateKey, now = Date.now(), includeActive = true) {
+            return Number(getFocusAggregate(now, includeActive).totalsByDay[dateKey] || 0);
+        }
+
+        function getCurrentFocusElapsedMs(now = Date.now()) {
+            if (!currentFocusSession) return 0;
+            return FOCUS_LEDGER_API.getEffectiveDurationMs(currentFocusSession, now);
+        }
+
+        function formatDurationClock(durationMs) {
+            const secondsTotal = Math.max(0, Math.floor(Number(durationMs || 0) / 1000));
+            const hours = Math.floor(secondsTotal / 3600);
+            const minutes = Math.floor((secondsTotal % 3600) / 60);
+            const seconds = secondsTotal % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function formatDurationCompact(durationMs, includeSeconds = false) {
+            const totalSeconds = Math.max(0, Math.floor(Number(durationMs || 0) / 1000));
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const parts = [];
+            if (hours > 0) parts.push(`${hours} 小时`);
+            if (minutes > 0 || (!hours && !includeSeconds)) parts.push(`${minutes} 分钟`);
+            if (includeSeconds && (seconds > 0 || parts.length === 0)) parts.push(`${seconds} 秒`);
+            return parts.join(' ');
+        }
+
+        function createFocusSessionId(mode) {
+            const randomPart = Math.random().toString(36).slice(2, 8);
+            return `focus_${mode}_${Date.now()}_${randomPart}`;
+        }
+
+        function formatFocusDateTime(timestamp, fallback = '时间未知') {
+            if (!isFiniteNumericValue(timestamp)) return fallback;
+            return new Date(Number(timestamp)).toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function toLocalDateTimeInputValue(timestamp) {
+            if (!isFiniteNumericValue(timestamp)) return '';
+            const date = new Date(Number(timestamp));
+            return `${formatLocalDate(date)}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
         }
 
         function getDateStartTimestamp(dateString) {
@@ -902,6 +1051,10 @@
             if (sectionId === 'stats-section') {
                 updateSummaryStatistics();
                 updateStatisticsCharts(getActiveStatsPeriod());
+            } else if (sectionId === 'focus-section') {
+                updateFocusTimerDisplay();
+                updateTodayFocusSummary();
+                updateFocusAnalysis();
             } else if (sectionId === 'rules-section') {
                 renderRulesForm();
             } else if (sectionId === 'rest-section') {
@@ -938,6 +1091,8 @@
                 updateTodayCheckinTable();
                 updateTodayStatus();
                 updateSummaryStatistics();
+                updateTodayFocusSummary();
+                updateFocusAnalysis();
 
                 if (!getElement('stats-section').classList.contains('hidden')) {
                     updateStatisticsCharts(getActiveStatsPeriod());
@@ -957,6 +1112,8 @@
                 updateTodayCheckinTable();
                 updateTodayStatus();
                 updateSummaryStatistics();
+                updateTodayFocusSummary();
+                updateFocusAnalysis();
 
                 if (!getElement('stats-section').classList.contains('hidden')) {
                     updateStatisticsCharts(getActiveStatsPeriod());
@@ -975,6 +1132,53 @@
                 stopFocusSession(false);
             });
 
+            getElement('start-stopwatch-session').addEventListener('click', function() {
+                startStopwatchSession(getElement('stopwatch-session-name').value);
+            });
+
+            getElement('pause-stopwatch-session').addEventListener('click', pauseStopwatchSession);
+            getElement('resume-stopwatch-session').addEventListener('click', resumeStopwatchSession);
+            getElement('finish-stopwatch-session').addEventListener('click', function() {
+                finishStopwatchSession(true);
+            });
+            getElement('abandon-stopwatch-session').addEventListener('click', function() {
+                abandonStopwatchSession(true);
+            });
+
+            document.querySelectorAll('.focus-mode-tab').forEach(button => {
+                button.addEventListener('click', function() {
+                    setFocusMode(this.dataset.mode);
+                });
+            });
+
+            document.querySelectorAll('.focus-analysis-range').forEach(button => {
+                button.addEventListener('click', function() {
+                    setFocusAnalysisRange(Number(this.dataset.days || 7));
+                });
+            });
+
+            getElement('add-focus-record').addEventListener('click', openFocusEditorForCreate);
+            getElement('cancel-focus-editor').addEventListener('click', closeFocusEditor);
+            getElement('close-focus-editor').addEventListener('click', closeFocusEditor);
+            getElement('save-focus-editor').addEventListener('click', saveFocusEditor);
+            getElement('focus-record-editor').addEventListener('click', function(event) {
+                if (event.target === this) closeFocusEditor();
+            });
+            ['focus-editor-start', 'focus-editor-end', 'focus-editor-pause-minutes', 'focus-editor-duration'].forEach(id => {
+                getElement(id).addEventListener('input', updateFocusEditorDurationPreview);
+            });
+
+            getElement('focus-today-records').addEventListener('click', function(event) {
+                const actionButton = event.target.closest('[data-focus-record-action]');
+                if (!actionButton) return;
+                const sessionId = actionButton.dataset.sessionId;
+                if (actionButton.dataset.focusRecordAction === 'edit') {
+                    openFocusEditorForSession(sessionId);
+                } else if (actionButton.dataset.focusRecordAction === 'delete') {
+                    deleteFocusRecord(sessionId);
+                }
+            });
+
             getElement('enable-focus-notifications').addEventListener('click', async function() {
                 await requestFocusNotificationPermission();
                 updateFocusNotificationStatus();
@@ -991,17 +1195,31 @@
                 desktopBridge.onFocusReminderAcknowledged(function(payload) {
                     dismissFocusCompletionReminder({ skipDesktopAck: true, sessionId: payload && payload.sessionId });
                 });
+                if (typeof desktopBridge.onFocusControlCommand === 'function') {
+                    desktopBridge.onFocusControlCommand(handleFocusControlCommand);
+                }
             }
 
-            document.querySelectorAll('.focus-preset').forEach(button => {
+            document.querySelectorAll('#focus-countdown-panel .focus-preset').forEach(button => {
                 button.addEventListener('click', function() {
                     getElement('focus-duration-input').value = this.getAttribute('data-minutes');
                 });
             });
 
+            initFocusDesktopSettings();
+            setFocusMode(currentFocusSession ? currentFocusSession.mode : focusSettings.lastMode, { persist: false });
             updateFocusNotificationStatus();
-            updateTodayFocusSummary();
             restoreFocusSession();
+            updateTodayFocusSummary();
+            updateFocusAnalysis();
+            updateFocusMigrationNotice();
+            broadcastFocusControlState();
+
+            if (desktopBridge && typeof desktopBridge.focusControlReady === 'function') {
+                desktopBridge.focusControlReady().then(state => {
+                    if (state && state.requestState) broadcastFocusControlState();
+                }).catch(error => console.warn('专注悬浮窗状态通道初始化失败。', error));
+            }
         }
 
         function initRestManagement() {
@@ -1398,15 +1616,14 @@
         }
 
         function getTodayFedCount() {
-            const today = getTodayString();
-            return catData.fedRecords[today] || 0;
+            const workDay = getWorkDayString();
+            return catData.fedRecords[workDay] || 0;
         }
 
         function getAvailableCatFood() {
-            const today = getTodayString();
-            ensureDateData(today);
-            const totalFocusMinutes = focusData[today].totalMinutes || 0;
-            const earnedFood = Math.floor(totalFocusMinutes / 60);
+            const workDay = getWorkDayString();
+            const totalFocusMs = getFocusDurationForWorkDay(workDay);
+            const earnedFood = Math.floor(totalFocusMs / FOCUS_LEDGER_API.HOUR_MS);
             return Math.max(0, earnedFood - getTodayFedCount());
         }
 
@@ -1420,12 +1637,12 @@
 
         function calculateFocusStreak() {
             let streak = 0;
-            const cursor = new Date();
+            const aggregate = getFocusAggregate();
+            const cursor = FOCUS_LEDGER_API.parseDateKey(getWorkDayString()) || new Date();
 
             while (true) {
                 const dateKey = formatLocalDate(cursor);
-                const dayFocus = focusData[dateKey];
-                if (!dayFocus || !dayFocus.totalMinutes || dayFocus.totalMinutes <= 0) {
+                if (Number(aggregate.totalsByDay[dateKey] || 0) <= 0) {
                     break;
                 }
                 streak++;
@@ -1488,17 +1705,16 @@
         }
 
         function updateCatCompanion() {
-            const today = getTodayString();
-            ensureDateData(today);
-
-            const totalFocusMinutes = focusData[today].totalMinutes || 0;
+            const workDay = getWorkDayString();
+            const totalFocusMs = getFocusDurationForWorkDay(workDay);
             const availableFood = getAvailableCatFood();
             const fedCount = getTodayFedCount();
             const affection = catData.affection || 0;
             const focusStreak = calculateFocusStreak();
             const catExpression = getCatExpression(affection, focusStreak);
 
-            getElement('cat-today-focus-hours').textContent = (totalFocusMinutes / 60).toFixed(totalFocusMinutes >= 60 ? 1 : 0);
+            const totalFocusHours = totalFocusMs / FOCUS_LEDGER_API.HOUR_MS;
+            getElement('cat-today-focus-hours').textContent = totalFocusHours.toFixed(totalFocusHours >= 1 ? 1 : 2).replace(/\.0+$/, '');
             getElement('cat-food-available').textContent = availableFood;
             getElement('cat-food-fed').textContent = fedCount;
             getElement('cat-affection').textContent = affection;
@@ -1506,7 +1722,7 @@
                 getElement('cat-mood-text').textContent = getCatDefaultMessage(affection, focusStreak);
             }
             getElement('cat-affection-bar').style.width = `${Math.min(100, affection)}%`;
-            getElement('cat-food-hint').textContent = `今日已专注 ${totalFocusMinutes} 分钟，连续专注 ${focusStreak} 天。每累计 60 分钟可兑换 1 个猫粮。`;
+            getElement('cat-food-hint').textContent = `本工作日已专注 ${formatDurationCompact(totalFocusMs, true)}，连续专注 ${focusStreak} 天。每累计 60 分钟可兑换 1 个猫粮。`;
             getElement('cat-figure-button').dataset.expression = catExpression;
 
             const feedButton = getElement('feed-cat-button');
@@ -1530,8 +1746,8 @@
                 return;
             }
 
-            const today = getTodayString();
-            catData.fedRecords[today] = getTodayFedCount() + 1;
+            const workDay = getWorkDayString();
+            catData.fedRecords[workDay] = getTodayFedCount() + 1;
             catData.affection = (catData.affection || 0) + 1;
 
             saveData();
@@ -1797,9 +2013,43 @@
         }
 
         function handleDesktopFocusReminderDue(payload) {
-            if (!currentFocusSession) return;
+            if (!currentFocusSession || currentFocusSession.mode !== 'countdown') return;
             if (payload && payload.sessionId && payload.sessionId !== currentFocusSession.id) return;
             completeFocusSession('desktop');
+        }
+
+        function setFocusMode(mode, options = {}) {
+            const nextMode = mode === 'stopwatch' ? 'stopwatch' : 'countdown';
+            focusSettings.lastMode = nextMode;
+
+            document.querySelectorAll('.focus-mode-tab').forEach(button => {
+                const isActive = button.dataset.mode === nextMode;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-200', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            getElement('focus-countdown-panel').classList.toggle('hidden', nextMode !== 'countdown');
+            getElement('focus-stopwatch-panel').classList.toggle('hidden', nextMode !== 'stopwatch');
+            if (options.persist !== false) saveData();
+            updateFocusTimerDisplay();
+        }
+
+        function confirmFocusReplacement(nextMode) {
+            if (!currentFocusSession) return true;
+            const currentLabel = currentFocusSession.mode === 'stopwatch' ? '正计时' : '倒计时';
+            const nextLabel = nextMode === 'stopwatch' ? '正计时' : '倒计时';
+            const shouldReplace = confirm(`当前${currentLabel}仍在进行。是否先结束并记录，再开始新的${nextLabel}？`);
+            if (!shouldReplace) return false;
+
+            if (currentFocusSession.mode === 'stopwatch') {
+                finishStopwatchSession(false);
+            } else {
+                stopFocusSession(false);
+            }
+            return true;
         }
 
         function startFocusSession() {
@@ -1809,58 +2059,154 @@
                 return;
             }
 
-            if (currentFocusSession) {
-                const shouldReplace = confirm('当前已有进行中的专注计时。是否结束当前计时并开始新的专注？');
-                if (!shouldReplace) return;
-                stopFocusSession(false);
-            }
+            if (!confirmFocusReplacement('countdown')) return;
 
             dismissFocusCompletionReminder();
             primeFocusReminderAudio();
 
-            const today = getTodayString();
-            ensureDateData(today);
+            const now = Date.now();
+            const workDay = FOCUS_LEDGER_API.workDayKey(now, dayRolloverHour);
 
             currentFocusSession = {
-                id: `focus_${Date.now()}`,
-                date: today,
+                id: createFocusSessionId('countdown'),
+                mode: 'countdown',
+                source: 'countdown',
+                status: 'running',
+                title: '',
+                date: workDay,
                 plannedMinutes: minutes,
-                startTimestamp: Date.now(),
-                endTimestamp: Date.now() + minutes * 60 * 1000
+                plannedDurationMs: minutes * FOCUS_LEDGER_API.MINUTE_MS,
+                startTimestamp: now,
+                endTimestamp: now + minutes * FOCUS_LEDGER_API.MINUTE_MS,
+                pauses: [],
+                precision: 'millisecond',
+                createdAt: new Date(now).toISOString()
             };
 
+            setFocusMode('countdown', { persist: false });
             saveData();
             scheduleDesktopFocusReminder(currentFocusSession);
             startFocusTimer();
+            updateTodayFocusSummary();
+            updateFocusAnalysis();
             updateTodayStatus();
+            broadcastFocusControlState();
+        }
+
+        function startStopwatchSession(title = '', options = {}) {
+            if (currentFocusSession) {
+                if (options.fromFloating) {
+                    setFocusControlNotice('已有专注计时正在运行，请先处理当前计时。');
+                    return false;
+                }
+                if (!confirmFocusReplacement('stopwatch')) return false;
+            }
+
+            dismissFocusCompletionReminder();
+            const now = Date.now();
+            currentFocusSession = {
+                id: createFocusSessionId('stopwatch'),
+                mode: 'stopwatch',
+                source: 'stopwatch',
+                status: 'running',
+                title: String(title || '').trim().slice(0, 120),
+                date: FOCUS_LEDGER_API.workDayKey(now, dayRolloverHour),
+                startTimestamp: now,
+                endTimestamp: null,
+                pauses: [],
+                precision: 'millisecond',
+                createdAt: new Date(now).toISOString()
+            };
+
+            getElement('stopwatch-session-name').value = currentFocusSession.title;
+            setFocusMode('stopwatch', { persist: false });
+            saveData();
+            startFocusTimer();
+            updateTodayFocusSummary();
+            updateFocusAnalysis();
+            updateTodayStatus();
+            broadcastFocusControlState();
+            return true;
+        }
+
+        function pauseStopwatchSession() {
+            if (!currentFocusSession || currentFocusSession.mode !== 'stopwatch' || currentFocusSession.status === 'paused') return false;
+            const now = Date.now();
+            currentFocusSession.status = 'paused';
+            currentFocusSession.pauses.push({ startTimestamp: now, endTimestamp: null });
+            setTickHandler('focus', null);
+            focusTimer = null;
+            saveData({ flushCompatibility: true });
+            refreshFocusViews();
+            return true;
+        }
+
+        function resumeStopwatchSession() {
+            if (!currentFocusSession || currentFocusSession.mode !== 'stopwatch' || currentFocusSession.status !== 'paused') return false;
+            const now = Date.now();
+            currentFocusSession.pauses.forEach(pause => {
+                if (!isFiniteNumericValue(pause.endTimestamp)) pause.endTimestamp = now;
+            });
+            currentFocusSession.status = 'running';
+            saveData({ flushCompatibility: true });
+            startFocusTimer();
+            refreshFocusViews();
+            return true;
+        }
+
+        function finishStopwatchSession(shouldConfirm = true) {
+            if (!currentFocusSession || currentFocusSession.mode !== 'stopwatch') return null;
+            if (shouldConfirm && !confirm('结束后会按实际有效时长写入专注记录。确定结束吗？')) return null;
+            const result = finalizeFocusSession({ completionKind: 'manual', endTimestamp: Date.now() });
+            return result && result.record;
+        }
+
+        function abandonStopwatchSession(shouldConfirm = true) {
+            if (!currentFocusSession || currentFocusSession.mode !== 'stopwatch') return false;
+            if (shouldConfirm && !confirm('放弃后本次正计时不会留下记录。确定放弃吗？')) return false;
+
+            currentFocusSession = null;
+            getElement('stopwatch-session-name').value = '';
+            setTickHandler('focus', null);
+            focusTimer = null;
+            saveData({ flushCompatibility: true });
+            refreshFocusViews();
+            return true;
         }
 
         function restoreFocusSession() {
-            if (!currentFocusSession || !currentFocusSession.endTimestamp) {
+            if (!currentFocusSession) {
                 updateFocusTimerDisplay();
                 return;
             }
 
-            if (Date.now() >= currentFocusSession.endTimestamp) {
+            if (currentFocusSession.mode === 'countdown' && Date.now() >= currentFocusSession.endTimestamp) {
                 completeFocusSession();
                 return;
             }
 
+            setFocusMode(currentFocusSession.mode, { persist: false });
+            if (currentFocusSession.mode === 'stopwatch' && currentFocusSession.status === 'paused') {
+                updateFocusTimerDisplay();
+                broadcastFocusControlState();
+                return;
+            }
+
             startFocusTimer();
-            scheduleDesktopFocusReminder(currentFocusSession);
+            if (currentFocusSession.mode === 'countdown') scheduleDesktopFocusReminder(currentFocusSession);
         }
 
         function startFocusTimer() {
-            getElement('stop-focus-session').classList.remove('hidden');
             updateFocusTimerDisplay();
             focusTimer = true;
 
             setTickHandler('focus', () => {
                 if (!currentFocusSession) return;
 
-                if (Date.now() >= currentFocusSession.endTimestamp) {
+                if (currentFocusSession.mode === 'countdown' && Date.now() >= currentFocusSession.endTimestamp) {
                     if (getDesktopBridge() && Date.now() - currentFocusSession.endTimestamp < 15000) {
                         updateFocusTimerDisplay();
+                        broadcastFocusControlState();
                         return;
                     }
                     completeFocusSession();
@@ -1868,6 +2214,19 @@
                 }
 
                 updateFocusTimerDisplay();
+                updateTodayFocusSummary({ records: false });
+                const minuteKey = Math.floor(Date.now() / FOCUS_LEDGER_API.MINUTE_MS);
+                if (minuteKey !== lastFocusAnalysisMinute) {
+                    lastFocusAnalysisMinute = minuteKey;
+                    updateCatCompanion();
+                    updateSummaryStatistics();
+                    if (isSectionVisible('focus-section')) updateFocusAnalysis();
+                    if (isSectionVisible('stats-section')) {
+                        markStatsDirty();
+                        updateStatisticsCharts(getActiveStatsPeriod());
+                    }
+                }
+                broadcastFocusControlState();
             });
         }
 
@@ -1876,66 +2235,125 @@
             const focusStatus = getElement('focus-session-status');
             const progressBar = getElement('focus-progress-bar');
             const stopButton = getElement('stop-focus-session');
+            const stopwatchDisplay = getElement('stopwatch-display');
+            const stopwatchStatus = getElement('stopwatch-session-status');
+            const stopwatchWarning = getElement('stopwatch-long-warning');
+            const pauseButton = getElement('pause-stopwatch-session');
+            const resumeButton = getElement('resume-stopwatch-session');
+            const finishButton = getElement('finish-stopwatch-session');
+            const abandonButton = getElement('abandon-stopwatch-session');
+            const startCountdownButton = getElement('start-focus-session');
+            const startStopwatchButton = getElement('start-stopwatch-session');
+            const stopwatchName = getElement('stopwatch-session-name');
 
             if (!currentFocusSession) {
                 countdownDisplay.textContent = '00:00';
                 focusStatus.textContent = '当前没有进行中的专注计时';
                 progressBar.style.width = '0%';
                 stopButton.classList.add('hidden');
+                stopwatchDisplay.textContent = '00:00:00';
+                stopwatchStatus.textContent = '当前没有进行中的正计时';
+                stopwatchWarning.classList.add('hidden');
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                finishButton.classList.add('hidden');
+                abandonButton.classList.add('hidden');
+                stopwatchName.disabled = false;
+                setButtonState(startCountdownButton, true);
+                setButtonState(startStopwatchButton, true);
                 return;
             }
 
-            const remainingMs = Math.max(currentFocusSession.endTimestamp - Date.now(), 0);
-            const remainingSeconds = Math.ceil(remainingMs / 1000);
-            const minutes = Math.floor(remainingSeconds / 60);
-            const seconds = remainingSeconds % 60;
-            countdownDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            setButtonState(startCountdownButton, false);
+            setButtonState(startStopwatchButton, false);
+            stopwatchName.disabled = true;
 
-            const totalMs = currentFocusSession.plannedMinutes * 60 * 1000;
-            const elapsedMs = Math.min(Date.now() - currentFocusSession.startTimestamp, totalMs);
-            const progress = totalMs > 0 ? (elapsedMs / totalMs) * 100 : 0;
-            progressBar.style.width = `${Math.max(0, Math.min(progress, 100))}%`;
-            focusStatus.textContent = `进行中：本次目标 ${currentFocusSession.plannedMinutes} 分钟`;
-            stopButton.classList.remove('hidden');
+            if (currentFocusSession.mode === 'countdown') {
+                const remainingMs = Math.max(currentFocusSession.endTimestamp - Date.now(), 0);
+                const remainingSeconds = Math.ceil(remainingMs / 1000);
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                const totalMs = currentFocusSession.plannedDurationMs || currentFocusSession.plannedMinutes * FOCUS_LEDGER_API.MINUTE_MS;
+                const elapsedMs = Math.min(Date.now() - currentFocusSession.startTimestamp, totalMs);
+                const progress = totalMs > 0 ? (elapsedMs / totalMs) * 100 : 0;
+                countdownDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                progressBar.style.width = `${Math.max(0, Math.min(progress, 100))}%`;
+                focusStatus.textContent = `进行中：本次目标 ${currentFocusSession.plannedMinutes} 分钟`;
+                stopButton.classList.remove('hidden');
+
+                stopwatchDisplay.textContent = '00:00:00';
+                stopwatchStatus.textContent = '倒计时正在运行；正计时暂不可开始。';
+                stopwatchWarning.classList.add('hidden');
+                pauseButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                finishButton.classList.add('hidden');
+                abandonButton.classList.add('hidden');
+                return;
+            }
+
+            countdownDisplay.textContent = '00:00';
+            focusStatus.textContent = '正计时正在运行；倒计时暂不可开始。';
+            progressBar.style.width = '0%';
+            stopButton.classList.add('hidden');
+
+            const elapsedMs = getCurrentFocusElapsedMs();
+            stopwatchDisplay.textContent = formatDurationClock(elapsedMs);
+            const title = currentFocusSession.title || '无标题专注';
+            stopwatchStatus.textContent = currentFocusSession.status === 'paused'
+                ? `已暂停 · ${title}`
+                : `计时中 · ${title}`;
+            stopwatchWarning.classList.toggle('hidden', elapsedMs < FOCUS_LONG_WARNING_MS);
+            pauseButton.classList.toggle('hidden', currentFocusSession.status === 'paused');
+            resumeButton.classList.toggle('hidden', currentFocusSession.status !== 'paused');
+            finishButton.classList.remove('hidden');
+            abandonButton.classList.remove('hidden');
         }
 
-        function finalizeFocusSession(completed) {
+        function finalizeFocusSession(options = {}) {
             if (!currentFocusSession) return null;
 
-            const session = currentFocusSession;
-            const recordedDate = session.date || getTodayString();
-            ensureDateData(recordedDate);
-
-            const endTimestamp = completed ? session.endTimestamp : Date.now();
-            const elapsedMinutes = Math.max(1, Math.round((endTimestamp - session.startTimestamp) / (1000 * 60)));
-            const actualMinutes = completed ? session.plannedMinutes : Math.min(elapsedMinutes, session.plannedMinutes);
-
-            focusData[recordedDate].totalMinutes += actualMinutes;
-            focusData[recordedDate].sessions.push({
-                id: session.id,
-                plannedMinutes: session.plannedMinutes,
-                actualMinutes,
-                completed,
-                startTime: new Date(session.startTimestamp).toTimeString().slice(0, 5),
-                endTime: new Date(endTimestamp).toTimeString().slice(0, 5)
+            const activeSession = currentFocusSession;
+            const endTimestamp = isFiniteNumericValue(options.endTimestamp) ? Number(options.endTimestamp) : Date.now();
+            const pauses = (activeSession.pauses || []).map(pause => ({ ...pause }));
+            pauses.forEach(pause => {
+                if (!isFiniteNumericValue(pause.endTimestamp)) pause.endTimestamp = endTimestamp;
             });
 
+            const record = {
+                ...activeSession,
+                status: 'completed',
+                completionKind: options.completionKind || 'manual',
+                endTimestamp,
+                pauses,
+                updatedAt: new Date().toISOString()
+            };
+            delete record.isPaused;
+            if (!focusLedger.sessions.some(session => session.id === record.id)) {
+                focusLedger.sessions.push(record);
+            }
+
             currentFocusSession = null;
+            if (activeSession.mode === 'stopwatch') getElement('stopwatch-session-name').value = '';
             setTickHandler('focus', null);
             focusTimer = null;
 
-            saveData();
+            saveData({ flushCompatibility: true });
+            refreshFocusViews();
+            return { session: activeSession, record };
+        }
+
+        function refreshFocusViews() {
             updateFocusTimerDisplay();
             updateTodayFocusSummary();
+            updateFocusAnalysis();
             updateCatCompanion();
             updateTodayStatus();
             updateSummaryStatistics();
+            broadcastFocusControlState();
 
             if (!getElement('stats-section').classList.contains('hidden')) {
                 updateStatisticsCharts(getActiveStatsPeriod());
             }
-
-            return session;
         }
 
         function showFocusReminder(session) {
@@ -1951,49 +2369,562 @@
         }
 
         function completeFocusSession(source = 'web') {
-            const session = finalizeFocusSession(true);
-            if (!session) return;
-            showFocusReminder(session);
+            if (!currentFocusSession || currentFocusSession.mode !== 'countdown') return;
+            const plannedEnd = currentFocusSession.endTimestamp;
+            const result = finalizeFocusSession({ completionKind: 'planned', endTimestamp: plannedEnd });
+            if (!result) return;
+            showFocusReminder(result.record);
             if (source !== 'desktop' && !getDesktopBridge()) {
                 pendingFocusCompletionReminderId = null;
             }
         }
 
         function stopFocusSession(isCompleted = false) {
-            const session = finalizeFocusSession(isCompleted);
-            if (!session) return;
-            cancelDesktopFocusReminder(session.id);
+            if (!currentFocusSession || currentFocusSession.mode !== 'countdown') return;
+            const activeId = currentFocusSession.id;
+            const endTimestamp = isCompleted ? currentFocusSession.endTimestamp : Date.now();
+            const result = finalizeFocusSession({
+                completionKind: isCompleted ? 'planned' : 'early',
+                endTimestamp
+            });
+            if (!result) return;
+            cancelDesktopFocusReminder(activeId);
             if (isCompleted) {
-                showFocusReminder(session);
+                showFocusReminder(result.record);
             }
         }
 
-        function updateTodayFocusSummary() {
-            const today = getTodayString();
-            ensureDateData(today);
+        function updateTodayFocusSummary(options = {}) {
+            const now = Date.now();
+            const workDay = FOCUS_LEDGER_API.workDayKey(now, dayRolloverHour);
+            const aggregate = getFocusAggregate(now, true);
+            const totalMs = Number(aggregate.totalsByDay[workDay] || 0);
+            const sourceTotals = aggregate.sourcesByDay[workDay] || { countdown: 0, stopwatch: 0 };
+            const sessionItems = FOCUS_LEDGER_API.getSessionsForWorkDay(
+                focusLedger,
+                currentFocusSession,
+                workDay,
+                dayRolloverHour,
+                now
+            );
 
-            const todayFocus = focusData[today];
-            getElement('focus-today-total').textContent = todayFocus.totalMinutes;
-            getElement('focus-today-count').textContent = todayFocus.sessions.length;
+            getElement('focus-today-total').textContent = formatDurationClock(totalMs);
+            getElement('focus-today-count').textContent = sessionItems.length;
+            getElement('focus-today-countdown').textContent = formatDurationCompact(sourceTotals.countdown);
+            getElement('focus-today-stopwatch').textContent = formatDurationCompact(sourceTotals.stopwatch);
+            getElement('today-focus-duration').textContent = `${Math.floor(totalMs / FOCUS_LEDGER_API.MINUTE_MS)} 分钟`;
+
+            if (options.records === false) return;
 
             const container = getElement('focus-today-records');
-            if (todayFocus.sessions.length === 0) {
+            const adjustments = (focusLedger.adjustments || []).filter(adjustment => adjustment.dateKey === workDay && Number(adjustment.durationMs));
+            if (sessionItems.length === 0 && adjustments.length === 0) {
                 container.innerHTML = '<div class="text-gray-500">暂无专注记录</div>';
                 return;
             }
 
             container.innerHTML = '';
-            [...todayFocus.sessions].reverse().forEach(session => {
+            sessionItems.forEach(item => {
+                const session = item.session;
+                const isActive = currentFocusSession && currentFocusSession.id === session.id;
+                const source = session.source === 'stopwatch' || session.mode === 'stopwatch' ? '正计时' : '倒计时';
+                const title = session.title && session.title.trim() ? session.title.trim() : '无标题专注';
+                const startLabel = formatFocusDateTime(session.startTimestamp, session.startTimeText || '开始时间未知');
+                const endLabel = isActive
+                    ? (session.status === 'paused' ? '已暂停' : '进行中')
+                    : formatFocusDateTime(session.endTimestamp, session.endTimeText || '结束时间未知');
+                const statusLabel = isActive
+                    ? (session.status === 'paused' ? '已暂停' : '进行中')
+                    : (session.legacy ? '旧记录' : (session.completionKind === 'early' ? '提前结束' : '已完成'));
+                const crossDayNote = Math.abs(item.totalDurationMs - item.contributionMs) >= 1000
+                    ? ` · 本工作日计入 ${formatDurationCompact(item.contributionMs, true)}`
+                    : '';
                 const row = document.createElement('div');
-                row.className = 'bg-white rounded-lg p-3 flex items-center justify-between';
+                row.className = 'bg-white rounded-lg p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3';
                 row.innerHTML = `
-                    <div>
-                        <div class="font-medium text-gray-800">${session.startTime} - ${session.endTime}</div>
-                        <div class="text-xs text-gray-500">${session.completed ? '已完成' : '提前结束'}，计划 ${session.plannedMinutes} 分钟</div>
+                    <div class="min-w-0">
+                        <div class="font-medium text-gray-800">${escapeHtml(title)} <span class="text-xs text-primary">${source}</span></div>
+                        <div class="text-xs text-gray-500">${escapeHtml(startLabel)} - ${escapeHtml(endLabel)}</div>
+                        <div class="text-xs text-gray-500">${statusLabel}${crossDayNote}</div>
                     </div>
-                    <div class="text-primary font-semibold">${session.actualMinutes} 分钟</div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-primary font-semibold">${formatDurationCompact(item.totalDurationMs, true)}</div>
+                        ${isActive ? '' : `
+                            <button class="bg-gray-200 text-gray-700 py-2 px-3 rounded-lg text-sm" data-focus-record-action="edit" data-session-id="${escapeHtml(session.id)}">编辑</button>
+                            <button class="bg-danger text-white py-2 px-3 rounded-lg text-sm" data-focus-record-action="delete" data-session-id="${escapeHtml(session.id)}">删除</button>
+                        `}
+                    </div>
                 `;
                 container.appendChild(row);
+            });
+
+            adjustments.forEach(adjustment => {
+                const row = document.createElement('div');
+                row.className = 'bg-white rounded-lg p-3 flex items-center justify-between gap-3';
+                const sign = adjustment.durationMs >= 0 ? '+' : '-';
+                row.innerHTML = `
+                    <div>
+                        <div class="font-medium text-gray-800">历史校准量</div>
+                        <div class="text-xs text-gray-500">旧版日总数与旧场次合计不一致；保留差额且不伪造时间戳。</div>
+                    </div>
+                    <div class="text-primary font-semibold">${sign}${formatDurationCompact(Math.abs(adjustment.durationMs))}</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function buildFocusControlState() {
+            const now = Date.now();
+            if (!currentFocusSession) {
+                return {
+                    active: false,
+                    mode: focusSettings.lastMode,
+                    status: 'idle',
+                    title: '',
+                    elapsedMs: 0,
+                    remainingMs: 0,
+                    overLong: false,
+                    notice: focusControlNotice,
+                    updatedAt: now
+                };
+            }
+
+            const elapsedMs = getCurrentFocusElapsedMs(now);
+            return {
+                active: true,
+                id: currentFocusSession.id,
+                mode: currentFocusSession.mode,
+                status: currentFocusSession.status,
+                title: currentFocusSession.title || '',
+                plannedMinutes: currentFocusSession.plannedMinutes || null,
+                startTimestamp: currentFocusSession.startTimestamp,
+                elapsedMs,
+                remainingMs: currentFocusSession.mode === 'countdown'
+                    ? Math.max(0, currentFocusSession.endTimestamp - now)
+                    : 0,
+                overLong: currentFocusSession.mode === 'stopwatch' && elapsedMs >= FOCUS_LONG_WARNING_MS,
+                notice: focusControlNotice,
+                updatedAt: now
+            };
+        }
+
+        function broadcastFocusControlState() {
+            const desktopBridge = getDesktopBridge();
+            if (!desktopBridge || typeof desktopBridge.publishFocusState !== 'function') return;
+            desktopBridge.publishFocusState(buildFocusControlState()).catch(error => {
+                console.warn('悬浮窗状态同步失败。', error);
+            });
+        }
+
+        function setFocusControlNotice(message) {
+            focusControlNotice = String(message || '');
+            clearTimeout(focusControlNoticeTimer);
+            broadcastFocusControlState();
+            if (focusControlNotice) {
+                focusControlNoticeTimer = setTimeout(() => {
+                    focusControlNotice = '';
+                    broadcastFocusControlState();
+                }, 4000);
+            }
+        }
+
+        function handleFocusControlCommand(command) {
+            if (!command || typeof command.action !== 'string') return;
+            switch (command.action) {
+                case 'start':
+                    startStopwatchSession(command.payload && command.payload.title, { fromFloating: true });
+                    break;
+                case 'pause':
+                    if (!pauseStopwatchSession()) setFocusControlNotice('当前没有可暂停的正计时。');
+                    break;
+                case 'resume':
+                    if (!resumeStopwatchSession()) setFocusControlNotice('当前没有可继续的正计时。');
+                    break;
+                case 'finish':
+                    if (!finishStopwatchSession(false)) setFocusControlNotice('当前没有可结束的正计时。');
+                    break;
+                case 'abandon':
+                    if (!abandonStopwatchSession(false)) setFocusControlNotice('当前没有可放弃的正计时。');
+                    break;
+                case 'request-state':
+                    broadcastFocusControlState();
+                    break;
+                default:
+                    setFocusControlNotice('无法识别悬浮窗操作。');
+            }
+        }
+
+        function getFocusSessionById(sessionId) {
+            return (focusLedger.sessions || []).find(session => session.id === sessionId) || null;
+        }
+
+        function getPausedDurationMs(session, endTimestamp = null) {
+            const rangeEnd = isFiniteNumericValue(endTimestamp)
+                ? Number(endTimestamp)
+                : (isFiniteNumericValue(session && session.endTimestamp) ? Number(session.endTimestamp) : Date.now());
+            return (Array.isArray(session && session.pauses) ? session.pauses : []).reduce((sum, pause) => {
+                const start = Number(pause && pause.startTimestamp);
+                const end = isFiniteNumericValue(pause && pause.endTimestamp) ? Number(pause.endTimestamp) : rangeEnd;
+                return sum + (isFiniteNumericValue(pause && pause.startTimestamp) && end > start ? end - start : 0);
+            }, 0);
+        }
+
+        function openFocusEditorForCreate() {
+            const modal = getElement('focus-record-editor');
+            const now = Date.now();
+            modal.dataset.mode = 'create';
+            modal.dataset.sessionId = '';
+            getElement('focus-editor-heading').textContent = '补录专注记录';
+            getElement('focus-editor-title').value = '';
+            getElement('focus-editor-title').disabled = false;
+            getElement('focus-editor-source').value = 'stopwatch';
+            getElement('focus-editor-source').disabled = false;
+            getElement('focus-editor-start').value = toLocalDateTimeInputValue(now - FOCUS_LEDGER_API.HOUR_MS);
+            getElement('focus-editor-end').value = toLocalDateTimeInputValue(now);
+            getElement('focus-editor-start').disabled = false;
+            getElement('focus-editor-end').disabled = false;
+            getElement('focus-editor-pause-minutes').value = '0';
+            getElement('focus-editor-pause-minutes').disabled = false;
+            getElement('focus-editor-duration').disabled = true;
+            getElement('focus-editor-legacy-date-wrap').classList.add('hidden');
+            getElement('focus-editor-legacy-note').classList.add('hidden');
+            updateFocusEditorDurationPreview();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function openFocusEditorForSession(sessionId) {
+            const session = getFocusSessionById(sessionId);
+            if (!session) return;
+            const modal = getElement('focus-record-editor');
+            const isLegacy = Boolean(session.legacy);
+            const hasTimestamps = isFiniteNumericValue(session.startTimestamp) && isFiniteNumericValue(session.endTimestamp);
+
+            modal.dataset.mode = 'edit';
+            modal.dataset.sessionId = session.id;
+            modal.dataset.legacy = isLegacy ? 'true' : 'false';
+            getElement('focus-editor-heading').textContent = isLegacy ? '修正旧版专注事实' : '编辑专注记录';
+            getElement('focus-editor-title').value = session.title || '';
+            getElement('focus-editor-title').disabled = isLegacy;
+            getElement('focus-editor-source').value = session.source === 'stopwatch' ? 'stopwatch' : 'countdown';
+            getElement('focus-editor-source').disabled = isLegacy;
+            getElement('focus-editor-start').value = hasTimestamps ? toLocalDateTimeInputValue(session.startTimestamp) : '';
+            getElement('focus-editor-end').value = hasTimestamps ? toLocalDateTimeInputValue(session.endTimestamp) : '';
+            getElement('focus-editor-start').disabled = isLegacy && !hasTimestamps;
+            getElement('focus-editor-end').disabled = isLegacy && !hasTimestamps;
+            getElement('focus-editor-pause-minutes').value = (getPausedDurationMs(session) / FOCUS_LEDGER_API.MINUTE_MS).toFixed(3).replace(/\.?0+$/, '');
+            getElement('focus-editor-pause-minutes').disabled = isLegacy;
+            getElement('focus-editor-duration').value = (FOCUS_LEDGER_API.getEffectiveDurationMs(session) / FOCUS_LEDGER_API.MINUTE_MS).toFixed(3).replace(/\.?0+$/, '');
+            getElement('focus-editor-duration').disabled = !isLegacy;
+            getElement('focus-editor-legacy-date').value = session.legacyDate || getWorkDayString();
+            getElement('focus-editor-legacy-date-wrap').classList.toggle('hidden', !isLegacy || hasTimestamps);
+            getElement('focus-editor-legacy-note').classList.toggle('hidden', !isLegacy);
+            updateFocusEditorDurationPreview();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeFocusEditor() {
+            const modal = getElement('focus-record-editor');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modal.dataset.sessionId = '';
+            modal.dataset.legacy = 'false';
+        }
+
+        function updateFocusEditorDurationPreview() {
+            const modal = getElement('focus-record-editor');
+            const isLegacy = modal.dataset.legacy === 'true';
+            if (isLegacy) {
+                const durationMinutes = Math.max(0, Number(getElement('focus-editor-duration').value || 0));
+                getElement('focus-editor-duration-preview').textContent = `将保留为旧版分钟精度：${formatDurationCompact(durationMinutes * FOCUS_LEDGER_API.MINUTE_MS, true)}`;
+                return;
+            }
+
+            const startTimestamp = new Date(getElement('focus-editor-start').value).getTime();
+            const endTimestamp = new Date(getElement('focus-editor-end').value).getTime();
+            const pauseMs = Math.max(0, Number(getElement('focus-editor-pause-minutes').value || 0)) * FOCUS_LEDGER_API.MINUTE_MS;
+            const durationMs = Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp)
+                ? Math.max(0, endTimestamp - startTimestamp - pauseMs)
+                : 0;
+            getElement('focus-editor-duration').value = (durationMs / FOCUS_LEDGER_API.MINUTE_MS).toFixed(3).replace(/\.?0+$/, '');
+            getElement('focus-editor-duration-preview').textContent = `有效时长：${formatDurationCompact(durationMs, true)}`;
+        }
+
+        function saveFocusEditor() {
+            const modal = getElement('focus-record-editor');
+            const editingSession = modal.dataset.mode === 'edit'
+                ? getFocusSessionById(modal.dataset.sessionId)
+                : null;
+            const isLegacy = Boolean(editingSession && editingSession.legacy);
+
+            if (isLegacy) {
+                const durationMinutes = Number(getElement('focus-editor-duration').value);
+                if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+                    alert('旧记录的有效时长必须大于 0 分钟。');
+                    return;
+                }
+
+                editingSession.durationOverrideMs = durationMinutes * FOCUS_LEDGER_API.MINUTE_MS;
+                if (!getElement('focus-editor-start').disabled) {
+                    const startTimestamp = new Date(getElement('focus-editor-start').value).getTime();
+                    const endTimestamp = new Date(getElement('focus-editor-end').value).getTime();
+                    if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp) || endTimestamp <= startTimestamp) {
+                        alert('结束时间必须晚于开始时间。');
+                        return;
+                    }
+                    editingSession.startTimestamp = startTimestamp;
+                    editingSession.endTimestamp = endTimestamp;
+                    editingSession.legacyDate = FOCUS_LEDGER_API.workDayKey(startTimestamp, dayRolloverHour);
+                    editingSession.startTimeText = new Date(startTimestamp).toTimeString().slice(0, 5);
+                    editingSession.endTimeText = new Date(endTimestamp).toTimeString().slice(0, 5);
+                } else {
+                    const legacyDate = getElement('focus-editor-legacy-date').value;
+                    if (!FOCUS_LEDGER_API.parseDateKey(legacyDate)) {
+                        alert('请选择有效的旧记录日期。');
+                        return;
+                    }
+                    editingSession.legacyDate = legacyDate;
+                }
+                editingSession.updatedAt = new Date().toISOString();
+            } else {
+                const startTimestamp = new Date(getElement('focus-editor-start').value).getTime();
+                const endTimestamp = new Date(getElement('focus-editor-end').value).getTime();
+                const pauseMinutes = Math.max(0, Number(getElement('focus-editor-pause-minutes').value || 0));
+                const pauseMs = pauseMinutes * FOCUS_LEDGER_API.MINUTE_MS;
+                if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp) || endTimestamp <= startTimestamp) {
+                    alert('结束时间必须晚于开始时间。');
+                    return;
+                }
+                if (pauseMs >= endTimestamp - startTimestamp) {
+                    alert('暂停时长必须小于起止时间跨度。');
+                    return;
+                }
+
+                const source = getElement('focus-editor-source').value === 'countdown' ? 'countdown' : 'stopwatch';
+                const title = String(getElement('focus-editor-title').value || '').trim().slice(0, 120);
+                const durationMs = endTimestamp - startTimestamp - pauseMs;
+                if (editingSession) {
+                    const originalStart = Number(editingSession.startTimestamp);
+                    const originalEnd = Number(editingSession.endTimestamp);
+                    const originalPauseMs = getPausedDurationMs(editingSession, originalEnd);
+                    const preservesPreciseIntervals = Math.abs(originalStart - startTimestamp) < 1000
+                        && Math.abs(originalEnd - endTimestamp) < 1000
+                        && Math.abs(originalPauseMs - pauseMs) < 1000
+                        && !isFiniteNumericValue(editingSession.durationOverrideMs);
+
+                    editingSession.title = title;
+                    editingSession.source = source;
+                    editingSession.mode = source;
+                    editingSession.startTimestamp = preservesPreciseIntervals ? originalStart : startTimestamp;
+                    editingSession.endTimestamp = preservesPreciseIntervals ? originalEnd : endTimestamp;
+                    if (!preservesPreciseIntervals) {
+                        editingSession.pauses = [];
+                        editingSession.durationOverrideMs = durationMs;
+                        editingSession.precision = 'manual';
+                    }
+                    editingSession.updatedAt = new Date().toISOString();
+                } else {
+                    focusLedger.sessions.push({
+                        id: createFocusSessionId(source),
+                        source,
+                        mode: source,
+                        title,
+                        status: 'completed',
+                        completionKind: 'manual-entry',
+                        completed: true,
+                        startTimestamp,
+                        endTimestamp,
+                        pauses: [],
+                        durationOverrideMs: durationMs,
+                        precision: 'manual',
+                        manual: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+            }
+
+            saveData({ flushCompatibility: true });
+            closeFocusEditor();
+            refreshFocusViews();
+        }
+
+        function deleteFocusRecord(sessionId) {
+            const session = getFocusSessionById(sessionId);
+            if (!session) return;
+            const title = session.title && session.title.trim() ? session.title.trim() : '无标题专注';
+            if (!confirm(`确定删除“${title}”这条专注记录吗？已喂食次数和猫咪好感度不会撤销。`)) return;
+            focusLedger.sessions = focusLedger.sessions.filter(item => item.id !== sessionId);
+            saveData({ flushCompatibility: true });
+            refreshFocusViews();
+        }
+
+        function setFocusAnalysisRange(days) {
+            const rangeDays = days === 30 ? 30 : 7;
+            getElement('focus-analysis').dataset.days = String(rangeDays);
+            document.querySelectorAll('.focus-analysis-range').forEach(button => {
+                const isActive = Number(button.dataset.days) === rangeDays;
+                button.classList.toggle('bg-primary', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-200', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+            });
+            updateFocusAnalysis();
+        }
+
+        function offsetDateKey(dateKey, dayOffset) {
+            const date = FOCUS_LEDGER_API.parseDateKey(dateKey) || new Date();
+            date.setDate(date.getDate() + dayOffset);
+            return formatLocalDate(date);
+        }
+
+        function sumFocusRange(totalsByDay, endDateKey, days) {
+            return FOCUS_LEDGER_API.dateKeysEndingAt(endDateKey, days)
+                .reduce((sum, key) => sum + Number(totalsByDay[key] || 0), 0);
+        }
+
+        function formatFocusComparison(currentMs, previousMs) {
+            if (previousMs <= 0 && currentMs <= 0) return '持平 0%';
+            if (previousMs <= 0) return '新增记录';
+            const percent = Math.round(((currentMs - previousMs) / previousMs) * 100);
+            if (percent === 0) return '持平 0%';
+            return `${percent > 0 ? '↑' : '↓'} ${Math.abs(percent)}%`;
+        }
+
+        function getFocusHeatColor(durationMs) {
+            if (durationMs <= 0) return '#e5e7eb';
+            if (durationMs < FOCUS_LEDGER_API.HOUR_MS) return '#bfdbfe';
+            if (durationMs < 2 * FOCUS_LEDGER_API.HOUR_MS) return '#60a5fa';
+            if (durationMs < 4 * FOCUS_LEDGER_API.HOUR_MS) return '#2563eb';
+            return '#1e3a8a';
+        }
+
+        function updateFocusAnalysis() {
+            const analysis = getElement('focus-analysis');
+            if (!analysis) return;
+            const now = Date.now();
+            const endDateKey = FOCUS_LEDGER_API.workDayKey(now, dayRolloverHour);
+            const days = Number(analysis.dataset.days) === 30 ? 30 : 7;
+            const aggregate = getFocusAggregate(now, true);
+            const dateKeys = FOCUS_LEDGER_API.dateKeysEndingAt(endDateKey, days);
+            const selectedDates = new Set(dateKeys);
+            const totalMs = dateKeys.reduce((sum, key) => sum + Number(aggregate.totalsByDay[key] || 0), 0);
+            const activeDays = dateKeys.filter(key => Number(aggregate.totalsByDay[key] || 0) > 0).length;
+            const sourceTotals = dateKeys.reduce((result, key) => {
+                const sourceDay = aggregate.sourcesByDay[key] || {};
+                result.countdown += Number(sourceDay.countdown || 0);
+                result.stopwatch += Number(sourceDay.stopwatch || 0);
+                return result;
+            }, { countdown: 0, stopwatch: 0 });
+
+            const sessions = [...(focusLedger.sessions || [])];
+            if (currentFocusSession) sessions.push(currentFocusSession);
+            let longestMs = 0;
+            sessions.forEach(session => {
+                const contributions = FOCUS_LEDGER_API.getSessionContributions(session, dayRolloverHour, now);
+                if (Object.keys(contributions).some(key => selectedDates.has(key))) {
+                    longestMs = Math.max(longestMs, FOCUS_LEDGER_API.getEffectiveDurationMs(session, now));
+                }
+            });
+
+            const currentWeekMs = sumFocusRange(aggregate.totalsByDay, endDateKey, 7);
+            const previousWeekMs = sumFocusRange(aggregate.totalsByDay, offsetDateKey(endDateKey, -7), 7);
+            const currentMonthMs = sumFocusRange(aggregate.totalsByDay, endDateKey, 30);
+            const previousMonthMs = sumFocusRange(aggregate.totalsByDay, offsetDateKey(endDateKey, -30), 30);
+            const attributedSourceMs = sourceTotals.countdown + sourceTotals.stopwatch;
+
+            getElement('focus-analysis-period-label').textContent = `最近 ${days} 个工作日`;
+            getElement('focus-analysis-total').textContent = formatDurationCompact(totalMs, true);
+            getElement('focus-analysis-average').textContent = formatDurationCompact(totalMs / days, true);
+            getElement('focus-analysis-longest').textContent = formatDurationCompact(longestMs, true);
+            getElement('focus-analysis-active-days').textContent = `${activeDays} 天`;
+            getElement('focus-analysis-week-change').textContent = formatFocusComparison(currentWeekMs, previousWeekMs);
+            getElement('focus-analysis-month-change').textContent = formatFocusComparison(currentMonthMs, previousMonthMs);
+            getElement('focus-analysis-source-ratio').textContent = attributedSourceMs > 0
+                ? `倒计时 ${Math.round(sourceTotals.countdown / attributedSourceMs * 100)}% · 正计时 ${Math.round(sourceTotals.stopwatch / attributedSourceMs * 100)}%`
+                : '暂无来源数据';
+
+            const maxDayMs = Math.max(...dateKeys.map(key => Number(aggregate.totalsByDay[key] || 0)), 1);
+            getElement('focus-trend-bars').innerHTML = dateKeys.map((key, index) => {
+                const durationMs = Number(aggregate.totalsByDay[key] || 0);
+                const height = durationMs > 0 ? Math.max(5, Math.round(durationMs / maxDayMs * 110)) : 2;
+                const showLabel = days === 7 || index % 5 === 0 || index === dateKeys.length - 1;
+                return `
+                    <div style="flex:1; min-width:0; text-align:center;" title="${key} · ${formatDurationCompact(durationMs, true)}">
+                        <div style="height:120px; display:flex; align-items:flex-end; justify-content:center;">
+                            <div style="width:${days === 7 ? '58%' : '72%'}; min-width:3px; height:${height}px; border-radius:6px 6px 2px 2px; background:${getFocusHeatColor(durationMs)};"></div>
+                        </div>
+                        <div class="text-xs text-gray-500" style="height:18px; white-space:nowrap; overflow:hidden;">${showLabel ? key.slice(5) : ''}</div>
+                    </div>
+                `;
+            }).join('');
+
+            const heatKeys = FOCUS_LEDGER_API.dateKeysEndingAt(endDateKey, 84);
+            getElement('focus-heatmap').innerHTML = heatKeys.map(key => {
+                const durationMs = Number(aggregate.totalsByDay[key] || 0);
+                return `<div title="${key} · ${formatDurationCompact(durationMs, true)}" aria-label="${key} ${formatDurationCompact(durationMs, true)}" style="height:18px; border-radius:5px; background:${getFocusHeatColor(durationMs)};"></div>`;
+            }).join('');
+        }
+
+        function updateFocusMigrationNotice() {
+            const notice = getElement('focus-migration-notice');
+            if (!notice) return;
+            const summary = focusLedger && focusLedger.migrationSummary;
+            if (!summary || (!summary.migratedSessionCount && !summary.adjustmentCount)) {
+                notice.classList.add('hidden');
+                return;
+            }
+            notice.textContent = `旧专注数据已自动备份并迁入统一账本：${summary.migratedSessionCount} 条场次，${summary.adjustmentCount} 条历史校准量。旧记录不会被伪造为秒级时间。`;
+            notice.classList.remove('hidden');
+        }
+
+        async function initFocusDesktopSettings() {
+            const desktopBridge = getDesktopBridge();
+            const panel = getElement('focus-desktop-settings');
+            if (!desktopBridge || typeof desktopBridge.getDesktopSettings !== 'function') {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            try {
+                const settings = await desktopBridge.getDesktopSettings();
+                getElement('focus-auto-launch').checked = settings.autoLaunch !== false;
+                getElement('focus-shortcut-enabled').checked = settings.shortcutEnabled !== false;
+                getElement('focus-shortcut').value = settings.shortcut || 'Ctrl+Alt+T';
+                getElement('focus-desktop-status').textContent = settings.shortcutStatus && settings.shortcutStatus.ok === false
+                    ? settings.shortcutStatus.message
+                    : '桌面设置已加载。';
+            } catch (error) {
+                getElement('focus-desktop-status').textContent = '桌面设置读取失败，请稍后重试。';
+            }
+
+            getElement('save-focus-desktop-settings').addEventListener('click', async function() {
+                const payload = {
+                    autoLaunch: getElement('focus-auto-launch').checked,
+                    shortcutEnabled: getElement('focus-shortcut-enabled').checked,
+                    shortcut: getElement('focus-shortcut').value.trim()
+                };
+                try {
+                    const result = await desktopBridge.updateDesktopSettings(payload);
+                    if (!result || result.ok === false) {
+                        getElement('focus-desktop-status').textContent = result && result.message
+                            ? result.message
+                            : '快捷键保存失败，请换一个组合。';
+                        return;
+                    }
+                    getElement('focus-shortcut').value = result.settings.shortcut;
+                    getElement('focus-desktop-status').textContent = '桌面设置已保存并立即生效。';
+                } catch (error) {
+                    getElement('focus-desktop-status').textContent = '桌面设置保存失败，请稍后重试。';
+                }
+            });
+
+            getElement('show-focus-floating-window').addEventListener('click', function() {
+                desktopBridge.showFloatingWindow().catch(error => {
+                    getElement('focus-desktop-status').textContent = '悬浮窗打开失败，请稍后重试。';
+                });
             });
         }
 
@@ -3774,6 +4705,7 @@
 
         function prepareFocusDurationData(startDate, endDate, labels) {
             const data = [];
+            const totalsByDay = getFocusAggregate().totalsByDay;
 
             for (let i = 0; i < labels.length; i++) {
                 const date = new Date(startDate);
@@ -3791,9 +4723,7 @@
                     const monthCurrent = new Date(monthStart);
                     while (monthCurrent <= monthEnd) {
                         const monthDateString = formatLocalDate(monthCurrent);
-                        if (focusData[monthDateString]) {
-                            monthTotal += focusData[monthDateString].totalMinutes;
-                        }
+                        monthTotal += Number(totalsByDay[monthDateString] || 0) / FOCUS_LEDGER_API.MINUTE_MS;
                         monthCurrent.setDate(monthCurrent.getDate() + 1);
                     }
 
@@ -3802,7 +4732,7 @@
                 }
 
                 const dateString = formatLocalDate(date);
-                data.push((focusData[dateString]?.totalMinutes || 0) / 60);
+                data.push(Number(totalsByDay[dateString] || 0) / FOCUS_LEDGER_API.HOUR_MS);
             }
 
             return data;
@@ -4042,8 +4972,8 @@
             getElement('total-phone-resist').textContent = phoneResistData.totalCount;
 
             // 总专注时长(小时)
-            const totalFocusMinutes = Object.values(focusData).reduce((sum, day) => sum + (day.totalMinutes || 0), 0);
-            getElement('total-focus-hours').textContent = Math.floor(totalFocusMinutes / 60);
+            const totalFocusMs = Object.values(getFocusAggregate().totalsByDay).reduce((sum, durationMs) => sum + Number(durationMs || 0), 0);
+            getElement('total-focus-hours').textContent = (totalFocusMs / FOCUS_LEDGER_API.HOUR_MS).toFixed(1).replace(/\.0$/, '');
 
             // 总休息时长(小时)
             const totalRestMinutes = Object.values(restData).reduce((sum, day) => sum + (day.totalMinutes || 0), 0);
@@ -4147,6 +5077,8 @@
             }
 
             // 今日专注时长
-            getElement('today-focus-duration').textContent = `${focusData[today].totalMinutes} 分钟`;
+            const focusWorkDay = getWorkDayString();
+            const focusDurationMs = getFocusDurationForWorkDay(focusWorkDay);
+            getElement('today-focus-duration').textContent = `${Math.floor(focusDurationMs / FOCUS_LEDGER_API.MINUTE_MS)} 分钟`;
             updateCatCompanion();
         }
