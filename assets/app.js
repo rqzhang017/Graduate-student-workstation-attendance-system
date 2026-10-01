@@ -41,6 +41,10 @@
         let focusControlNotice = ''; // 悬浮窗命令反馈
         let focusControlNoticeTimer = null;
         let lastFocusAnalysisMinute = null;
+        let focusCalendarYear = null; // 专注日历查看的年份，null 表示近一年
+        let focusSelectedDay = null; // 专注动态选中的工作日，null 表示跟随今天
+        let focusTooltipAnchor = null; // 汇总分析悬浮提示当前锚定的元素
+        let lastFocusCalendarViewKey = null; // 最近一次完成滚动定位的日历视图
         const domCache = new Map();
         const tickHandlers = new Map();
         let appTickTimer = null;
@@ -49,6 +53,7 @@
         const SEDENTARY_STAND_MINUTES = 5;
         const CHECKIN_REMINDER_LEAD_MINUTES = 10;
         const FOCUS_LONG_WARNING_MS = 12 * 60 * 60 * 1000;
+        const FOCUS_WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
         const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js';
         const FOCUS_LEDGER_API = window.FocusLedger;
         const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'rest-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
@@ -621,7 +626,8 @@
         function normalizeFocusSettings(rawSettings) {
             const settings = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
             return {
-                lastMode: settings.lastMode === 'stopwatch' ? 'stopwatch' : 'countdown'
+                lastMode: settings.lastMode === 'stopwatch' ? 'stopwatch' : 'countdown',
+                heatmapPalette: settings.heatmapPalette === 'blue' ? 'blue' : 'green'
             };
         }
 
@@ -1157,6 +1163,13 @@
                 });
             });
 
+            document.querySelectorAll('.focus-heatmap-palette').forEach(button => {
+                button.addEventListener('click', function() {
+                    setFocusHeatmapPalette(this.dataset.palette);
+                });
+            });
+            initFocusAnalysisInteractions();
+
             getElement('add-focus-record').addEventListener('click', openFocusEditorForCreate);
             getElement('cancel-focus-editor').addEventListener('click', closeFocusEditor);
             getElement('close-focus-editor').addEventListener('click', closeFocusEditor);
@@ -1207,6 +1220,7 @@
             });
 
             initFocusDesktopSettings();
+            setFocusHeatmapPalette(focusSettings.heatmapPalette, { persist: false });
             setFocusMode(currentFocusSession ? currentFocusSession.mode : focusSettings.lastMode, { persist: false });
             updateFocusNotificationStatus();
             restoreFocusSession();
@@ -2765,12 +2779,22 @@
             getElement('focus-analysis').dataset.days = String(rangeDays);
             document.querySelectorAll('.focus-analysis-range').forEach(button => {
                 const isActive = Number(button.dataset.days) === rangeDays;
-                button.classList.toggle('bg-primary', isActive);
-                button.classList.toggle('text-white', isActive);
-                button.classList.toggle('bg-gray-200', !isActive);
-                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('is-selected', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
             updateFocusAnalysis();
+        }
+
+        function setFocusHeatmapPalette(palette, options = {}) {
+            const nextPalette = palette === 'blue' ? 'blue' : 'green';
+            focusSettings.heatmapPalette = nextPalette;
+            getElement('focus-analysis').dataset.palette = nextPalette;
+            document.querySelectorAll('.focus-heatmap-palette').forEach(button => {
+                const isActive = button.dataset.palette === nextPalette;
+                button.classList.toggle('is-selected', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+            if (options.persist !== false) saveData();
         }
 
         function offsetDateKey(dateKey, dayOffset) {
@@ -2784,20 +2808,431 @@
                 .reduce((sum, key) => sum + Number(totalsByDay[key] || 0), 0);
         }
 
-        function formatFocusComparison(currentMs, previousMs) {
-            if (previousMs <= 0 && currentMs <= 0) return '持平 0%';
-            if (previousMs <= 0) return '新增记录';
+        function describeFocusComparison(currentMs, previousMs) {
+            if (previousMs <= 0 && currentMs <= 0) return { text: '持平 0%', trend: 'flat' };
+            if (previousMs <= 0) return { text: '新增记录', trend: 'new' };
             const percent = Math.round(((currentMs - previousMs) / previousMs) * 100);
-            if (percent === 0) return '持平 0%';
-            return `${percent > 0 ? '↑' : '↓'} ${Math.abs(percent)}%`;
+            if (percent === 0) return { text: '持平 0%', trend: 'flat' };
+            return { text: `${percent > 0 ? '↑' : '↓'} ${Math.abs(percent)}%`, trend: percent > 0 ? 'up' : 'down' };
         }
 
-        function getFocusHeatColor(durationMs) {
-            if (durationMs <= 0) return '#e5e7eb';
-            if (durationMs < FOCUS_LEDGER_API.HOUR_MS) return '#bfdbfe';
-            if (durationMs < 2 * FOCUS_LEDGER_API.HOUR_MS) return '#60a5fa';
-            if (durationMs < 4 * FOCUS_LEDGER_API.HOUR_MS) return '#2563eb';
-            return '#1e3a8a';
+        function setFocusComparison(valueElement, noteElement, currentMs, previousMs, days) {
+            const comparison = describeFocusComparison(currentMs, previousMs);
+            valueElement.textContent = comparison.text;
+            valueElement.className = `gh-stat-value gh-trend-${comparison.trend}`;
+            noteElement.textContent = `前 ${days} 天：${formatDurationCompact(previousMs)}`;
+        }
+
+        // 按当天绝对时长分级：0 / 少于 1 小时 / 1–2 小时 / 2–4 小时 / 4 小时及以上
+        function getFocusHeatLevel(durationMs) {
+            if (durationMs <= 0) return 0;
+            if (durationMs < FOCUS_LEDGER_API.HOUR_MS) return 1;
+            if (durationMs < 2 * FOCUS_LEDGER_API.HOUR_MS) return 2;
+            if (durationMs < 4 * FOCUS_LEDGER_API.HOUR_MS) return 3;
+            return 4;
+        }
+
+        function formatFocusDay(dateKey, options = {}) {
+            const date = FOCUS_LEDGER_API.parseDateKey(dateKey);
+            if (!date) return String(dateKey || '');
+            let label = `${date.getMonth() + 1}月${date.getDate()}日`;
+            if (options.year || date.getFullYear() !== new Date().getFullYear()) label = `${date.getFullYear()}年${label}`;
+            if (options.weekday) label += ` ${FOCUS_WEEKDAY_LABELS[date.getDay()]}`;
+            return label;
+        }
+
+        function formatFocusClock(timestamp, fallback) {
+            if (!isFiniteNumericValue(timestamp)) return fallback || '';
+            const date = new Date(Number(timestamp));
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        function formatFocusDurationHtml(durationMs, includeSeconds = false) {
+            return escapeHtml(formatDurationCompact(durationMs, includeSeconds))
+                .replace(/(\d+) (小时|分钟|秒) ?/g, '$1<span class="gh-unit">$2</span>');
+        }
+
+        function describeFocusDay(dateKey, durationMs) {
+            const dayLabel = formatFocusDay(dateKey, { weekday: true });
+            if (durationMs <= 0) return `${dayLabel} · 没有专注记录`;
+            return `${dayLabel} · 专注 ${formatDurationCompact(durationMs, durationMs < FOCUS_LEDGER_API.MINUTE_MS)}`;
+        }
+
+        function getFocusSelectedDay(todayKey) {
+            return focusSelectedDay || todayKey;
+        }
+
+        function getFocusStreaks(totalsByDay, todayKey) {
+            const activeKeys = Object.keys(totalsByDay)
+                .filter(key => key <= todayKey && Number(totalsByDay[key] || 0) > 0 && FOCUS_LEDGER_API.parseDateKey(key))
+                .sort();
+            const emptyStreak = { days: 0, startKey: null, endKey: null };
+            let longest = emptyStreak;
+            let run = null;
+            activeKeys.forEach(key => {
+                run = run && offsetDateKey(run.endKey, 1) === key
+                    ? { ...run, days: run.days + 1, endKey: key }
+                    : { days: 1, startKey: key, endKey: key };
+                if (run.days > longest.days) longest = run;
+            });
+            // 今天还没专注时，截至昨天的连续记录仍然有效
+            const isCurrent = run && (run.endKey === todayKey || run.endKey === offsetDateKey(todayKey, -1));
+            return { current: isCurrent ? run : emptyStreak, longest };
+        }
+
+        function describeFocusStreak(streak, todayKey, isCurrent) {
+            if (streak.days === 0) return isCurrent ? '今天专注即可开启连续' : '暂无记录';
+            if (isCurrent) {
+                return streak.endKey === todayKey
+                    ? `${formatFocusDay(streak.startKey)} 至今`
+                    : '截至昨天，今天专注即可延续';
+            }
+            return streak.startKey === streak.endKey
+                ? formatFocusDay(streak.startKey)
+                : `${formatFocusDay(streak.startKey)} – ${formatFocusDay(streak.endKey)}`;
+        }
+
+        function renderFocusSourceShare(sourceTotals) {
+            const totalMs = sourceTotals.countdown + sourceTotals.stopwatch;
+            if (totalMs <= 0) {
+                getElement('focus-analysis-source-bar').innerHTML = '';
+                getElement('focus-analysis-source-ratio').textContent = '暂无来源数据';
+                return;
+            }
+
+            const sources = [
+                { label: '倒计时', className: 'gh-source-countdown', durationMs: sourceTotals.countdown },
+                { label: '正计时', className: 'gh-source-stopwatch', durationMs: sourceTotals.stopwatch }
+            ];
+            getElement('focus-analysis-source-bar').innerHTML = sources
+                .filter(source => source.durationMs > 0)
+                .map(source => `<span class="gh-progress-item ${source.className}" style="width:${source.durationMs / totalMs * 100}%"></span>`)
+                .join('');
+            getElement('focus-analysis-source-ratio').innerHTML = sources.map(source => `
+                <span class="gh-source-legend-item">
+                    <span class="gh-dot ${source.className}"></span>
+                    <strong>${source.label}</strong>
+                    <span>${(source.durationMs / totalMs * 100).toFixed(1)}%</span>
+                    <span>· ${formatDurationCompact(source.durationMs)}</span>
+                </span>
+            `).join('');
+        }
+
+        function getFocusChartScale(maxMs) {
+            const maxHours = maxMs / FOCUS_LEDGER_API.HOUR_MS;
+            const step = [0.25, 0.5, 1, 2, 3, 4, 6].find(candidate => maxHours <= candidate * 4) || 12;
+            return { step, topHours: Math.max(step, Math.ceil(maxHours / step) * step) };
+        }
+
+        function formatFocusChartHours(hours) {
+            if (hours === 0) return '0';
+            return hours < 1 ? `${Math.round(hours * 60)}m` : `${Number(hours.toFixed(2))}h`;
+        }
+
+        function renderFocusTrend(dateKeys, totalsByDay, todayKey) {
+            const values = dateKeys.map(key => Number(totalsByDay[key] || 0));
+            const maxMs = Math.max(0, ...values);
+            const { step, topHours } = getFocusChartScale(maxMs);
+            const topMs = topHours * FOCUS_LEDGER_API.HOUR_MS;
+            const ticks = [];
+            for (let tick = 0; tick <= topHours + 1e-9; tick += step) ticks.push(tick);
+            const selectedKey = getFocusSelectedDay(todayKey);
+            const labelEvery = dateKeys.length > 7 ? 5 : 1;
+
+            getElement('focus-trend-summary').textContent = maxMs > 0
+                ? `单日最高 ${formatDurationCompact(maxMs)}（${formatFocusDay(dateKeys[values.indexOf(maxMs)])}）`
+                : '这段时间还没有专注记录';
+
+            getElement('focus-trend-bars').innerHTML = `
+                <div class="gh-chart-yaxis" aria-hidden="true">
+                    ${ticks.map(tick => `<span class="gh-chart-ylabel" style="bottom:${tick / topHours * 100}%">${formatFocusChartHours(tick)}</span>`).join('')}
+                </div>
+                <div class="gh-chart-plot">
+                    ${ticks.slice(1).map(tick => `<span class="gh-chart-gridline" style="bottom:${tick / topHours * 100}%"></span>`).join('')}
+                    <div class="gh-chart-bars">
+                        ${dateKeys.map((key, index) => `
+                            <div class="gh-chart-bar${key === selectedKey ? ' is-selected' : ''}" data-date="${key}" data-tip="${escapeHtml(describeFocusDay(key, values[index]))}">
+                                <span class="gh-chart-fill" data-level="${getFocusHeatLevel(values[index])}" style="height:${values[index] > 0 ? `max(3px, ${values[index] / topMs * 100}%)` : '2px'}"></span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="gh-chart-xaxis" aria-hidden="true">
+                    ${dateKeys.map((key, index) => {
+                        if ((dateKeys.length - 1 - index) % labelEvery !== 0) return '<span class="gh-chart-xlabel"></span>';
+                        const date = FOCUS_LEDGER_API.parseDateKey(key);
+                        const weekdayLine = dateKeys.length <= 7
+                            ? `<br>${key === todayKey ? '今天' : FOCUS_WEEKDAY_LABELS[date.getDay()]}`
+                            : '';
+                        return `<span class="gh-chart-xlabel${key === todayKey ? ' is-today' : ''}">${date.getMonth() + 1}/${date.getDate()}${weekdayLine}</span>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function getFocusWeekStartKey(dateKey) {
+            const date = FOCUS_LEDGER_API.parseDateKey(dateKey) || new Date();
+            date.setDate(date.getDate() - (date.getDay() + 6) % 7);
+            return formatLocalDate(date);
+        }
+
+        function getFocusCalendarYears(totalsByDay, todayKey) {
+            const years = new Set([Number(todayKey.slice(0, 4))]);
+            Object.keys(totalsByDay).forEach(key => {
+                if (Number(totalsByDay[key] || 0) > 0 && FOCUS_LEDGER_API.parseDateKey(key)) years.add(Number(key.slice(0, 4)));
+            });
+            return [...years].sort((left, right) => right - left);
+        }
+
+        // GitHub 式贡献日历：列为周（周一起始），行为星期
+        function renderFocusCalendar(totalsByDay, todayKey) {
+            const years = getFocusCalendarYears(totalsByDay, todayKey);
+            if (!years.includes(focusCalendarYear)) focusCalendarYear = null;
+            const startKey = focusCalendarYear
+                ? `${focusCalendarYear}-01-01`
+                : offsetDateKey(getFocusWeekStartKey(todayKey), -52 * 7);
+            const endKey = focusCalendarYear ? `${focusCalendarYear}-12-31` : todayKey;
+            const gridStart = FOCUS_LEDGER_API.parseDateKey(getFocusWeekStartKey(startKey));
+            const cursor = FOCUS_LEDGER_API.parseDateKey(startKey);
+            const selectedKey = getFocusSelectedDay(todayKey);
+            const cells = [];
+            const months = [];
+            let weekCount = 0;
+            let totalMs = 0;
+            let activeDays = 0;
+            let key = startKey;
+
+            while (key <= endKey) {
+                const dayIndex = Math.round((cursor - gridStart) / FOCUS_LEDGER_API.DAY_MS);
+                const column = Math.floor(dayIndex / 7) + 2;
+                const row = dayIndex % 7 + 2;
+                if (row === 2 || key === startKey) {
+                    const month = cursor.getMonth() + 1;
+                    if (!months.length || months[months.length - 1].month !== month) months.push({ month, column });
+                }
+                weekCount = column - 1;
+
+                if (key > todayKey) {
+                    cells.push(`<span class="gh-cell is-future" data-level="0" style="grid-column:${column};grid-row:${row}"></span>`);
+                } else {
+                    const durationMs = Number(totalsByDay[key] || 0);
+                    totalMs += durationMs;
+                    if (durationMs > 0) activeDays += 1;
+                    cells.push(`<span class="gh-cell${key === selectedKey ? ' is-selected' : ''}" data-level="${getFocusHeatLevel(durationMs)}" data-date="${key}" data-tip="${escapeHtml(describeFocusDay(key, durationMs))}" style="grid-column:${column};grid-row:${row}"></span>`);
+                }
+
+                cursor.setDate(cursor.getDate() + 1);
+                key = formatLocalDate(cursor);
+            }
+
+            const monthLabels = months.map((item, index) => {
+                const span = (index + 1 < months.length ? months[index + 1].column : weekCount + 2) - item.column;
+                return span < 2 ? '' : `<span class="gh-cal-month" style="grid-column:${item.column} / span ${span}">${item.month}月</span>`;
+            }).join('');
+            const weekdayLabels = [[2, '周一'], [4, '周三'], [6, '周五'], [8, '周日']]
+                .map(([row, label]) => `<span class="gh-cal-weekday" style="grid-row:${row}"><span>${label}</span></span>`)
+                .join('');
+            getElement('focus-heatmap').innerHTML = `
+                <div class="gh-cal" style="grid-template-columns:28px repeat(${weekCount}, minmax(0, 1fr)); min-width:${28 + weekCount * 14}px;">
+                    ${monthLabels}${weekdayLabels}${cells.join('')}
+                </div>
+            `;
+
+            const rangeLabel = focusCalendarYear ? `${focusCalendarYear} 年` : '过去一年';
+            getElement('focus-heatmap-title').innerHTML = `${rangeLabel}共专注 <strong>${escapeHtml(formatDurationCompact(totalMs))}</strong>`;
+            getElement('focus-heatmap-caption').textContent = `${rangeLabel}活跃 ${activeDays} 天`;
+
+            // 只在年份列表变化时重绘，避免每分钟刷新打断键盘焦点
+            const yearList = getElement('focus-heatmap-years');
+            const yearListKey = `${years.join(',')}|${focusCalendarYear || ''}`;
+            if (yearList.dataset.renderKey !== yearListKey) {
+                yearList.dataset.renderKey = yearListKey;
+                yearList.innerHTML = [null, ...years].map(year => {
+                    const isActive = year === focusCalendarYear;
+                    return `<button type="button" class="gh-year-item${isActive ? ' is-selected' : ''}" data-year="${year || ''}" aria-pressed="${isActive}">${year || '近一年'}</button>`;
+                }).join('');
+            }
+
+            // 窄屏时日历可横向滚动：切换视图后近一年定位到最新一周，按年查看从一月开始
+            const scroller = getElement('focus-heatmap-scroll');
+            const viewKey = `${focusCalendarYear || 'recent'}|${startKey}`;
+            if (viewKey !== lastFocusCalendarViewKey && scroller.clientWidth > 0) {
+                lastFocusCalendarViewKey = viewKey;
+                scroller.scrollLeft = focusCalendarYear ? 0 : scroller.scrollWidth;
+            }
+        }
+
+        function getFocusSessionStatusLabel(session, isActive) {
+            if (isActive) {
+                return session.status === 'paused'
+                    ? '<span class="gh-label gh-label-attention">已暂停</span>'
+                    : '<span class="gh-label gh-label-success">进行中</span>';
+            }
+            if (session.legacy) return '<span class="gh-label">旧记录</span>';
+            if (session.completionKind === 'early') return '<span class="gh-label">提前结束</span>';
+            return '';
+        }
+
+        function renderFocusDayDetail(totalsByDay, todayKey, now) {
+            const dateKey = getFocusSelectedDay(todayKey);
+            const date = FOCUS_LEDGER_API.parseDateKey(dateKey);
+            const totalMs = Number(totalsByDay[dateKey] || 0);
+            const items = FOCUS_LEDGER_API.getSessionsForWorkDay(focusLedger, currentFocusSession, dateKey, dayRolloverHour, now);
+            const adjustments = (focusLedger.adjustments || []).filter(adjustment => adjustment.dateKey === dateKey && Number(adjustment.durationMs));
+            const header = `
+                <div class="gh-activity-date">
+                    <span>${date.getMonth() + 1}月${date.getDate()}日 ${FOCUS_WEEKDAY_LABELS[date.getDay()]} <span class="gh-muted">${date.getFullYear()}</span></span>
+                    ${dateKey === todayKey
+                        ? '<span class="gh-label gh-label-accent">今天</span>'
+                        : '<button type="button" class="gh-btn gh-btn-sm" data-focus-day-action="today">回到今天</button>'}
+                </div>
+            `;
+
+            if (items.length === 0 && adjustments.length === 0) {
+                getElement('focus-day-detail').innerHTML = `${header}
+                    <div class="gh-timeline-item">
+                        <span class="gh-timeline-badge"><i class="fa fa-moon-o" aria-hidden="true"></i></span>
+                        <div class="gh-timeline-body gh-muted">这一天没有专注记录。</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const sessionRows = items.map(item => {
+                const session = item.session;
+                const isActive = Boolean(currentFocusSession && currentFocusSession.id === session.id);
+                const isStopwatch = session.source === 'stopwatch' || session.mode === 'stopwatch';
+                const sourceClass = isStopwatch ? 'gh-source-stopwatch' : 'gh-source-countdown';
+                const title = session.title && session.title.trim() ? session.title.trim() : '无标题专注';
+                const startText = formatFocusClock(session.startTimestamp, session.startTimeText);
+                const endText = isActive ? '现在' : formatFocusClock(session.endTimestamp, session.endTimeText);
+                const timeText = startText || endText ? `${startText || '?'} – ${endText || '?'}` : '时间未知';
+                const wholeNote = Math.abs(item.totalDurationMs - item.contributionMs) >= 1000
+                    ? ` · 整场 ${formatDurationCompact(item.totalDurationMs)}`
+                    : '';
+                const share = totalMs > 0 ? Math.min(100, item.contributionMs / totalMs * 100) : 0;
+                return `
+                    <li class="gh-session">
+                        <div class="gh-session-main">
+                            <span class="gh-dot ${sourceClass}" aria-hidden="true"></span>
+                            <span class="gh-session-title">${escapeHtml(title)}</span>
+                            <span class="gh-session-meta">${isStopwatch ? '正计时' : '倒计时'} · ${escapeHtml(timeText)}${wholeNote}</span>
+                            ${getFocusSessionStatusLabel(session, isActive)}
+                        </div>
+                        <div class="gh-session-side">
+                            <span class="gh-progress" aria-hidden="true"><span class="gh-progress-item ${sourceClass}" style="width:${share}%"></span></span>
+                            <span class="gh-session-duration">${formatDurationCompact(item.contributionMs, item.contributionMs < FOCUS_LEDGER_API.MINUTE_MS)}</span>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
+            const adjustmentItems = adjustments.map(adjustment => `
+                <div class="gh-timeline-item">
+                    <span class="gh-timeline-badge"><i class="fa fa-sliders" aria-hidden="true"></i></span>
+                    <div class="gh-timeline-body">
+                        <div>历史校准量 <strong>${adjustment.durationMs >= 0 ? '+' : '-'}${formatDurationCompact(Math.abs(adjustment.durationMs))}</strong></div>
+                        <div class="gh-session-meta">旧版日总数与旧场次合计不一致；保留差额且不伪造时间戳。</div>
+                    </div>
+                </div>
+            `).join('');
+
+            getElement('focus-day-detail').innerHTML = `${header}
+                <div class="gh-timeline-item">
+                    <span class="gh-timeline-badge"><i class="fa fa-hourglass-half" aria-hidden="true"></i></span>
+                    <div class="gh-timeline-body">
+                        <div>专注 <strong>${formatDurationCompact(totalMs, totalMs < FOCUS_LEDGER_API.MINUTE_MS)}</strong>${items.length ? `，共 ${items.length} 场` : ''}</div>
+                        ${items.length ? `<ul class="gh-session-list">${sessionRows}</ul>` : ''}
+                    </div>
+                </div>
+                ${adjustmentItems}
+            `;
+        }
+
+        function selectFocusDay(dateKey) {
+            const now = Date.now();
+            const todayKey = FOCUS_LEDGER_API.workDayKey(now, dayRolloverHour);
+            focusSelectedDay = dateKey && dateKey !== todayKey ? dateKey : null;
+            const selectedKey = getFocusSelectedDay(todayKey);
+            getElement('focus-analysis').querySelectorAll('[data-date]').forEach(element => {
+                element.classList.toggle('is-selected', element.dataset.date === selectedKey);
+            });
+            renderFocusDayDetail(getFocusAggregate(now, true).totalsByDay, todayKey, now);
+        }
+
+        function showFocusAnalysisTooltip(target) {
+            const host = getElement('focus-analysis');
+            const tooltip = getElement('focus-analysis-tooltip');
+            const anchor = target.querySelector('.gh-chart-fill') || target;
+            tooltip.textContent = target.dataset.tip;
+            tooltip.hidden = false;
+            const hostRect = host.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const halfWidth = tooltip.offsetWidth / 2;
+            const centerX = targetRect.left - hostRect.left + targetRect.width / 2;
+            const left = Math.min(Math.max(centerX, halfWidth + 4), hostRect.width - halfWidth - 4);
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${anchor.getBoundingClientRect().top - hostRect.top}px`;
+            tooltip.style.setProperty('--gh-arrow-x', `${centerX - left + halfWidth}px`);
+            focusTooltipAnchor = target;
+        }
+
+        function hideFocusAnalysisTooltip() {
+            getElement('focus-analysis-tooltip').hidden = true;
+            focusTooltipAnchor = null;
+        }
+
+        function handleFocusCalendarKeydown(event) {
+            const offset = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 }[event.key];
+            const heatmap = getElement('focus-heatmap');
+            const cells = heatmap.querySelectorAll('.gh-cell[data-date]');
+            if (!offset || cells.length === 0) return;
+            event.preventDefault();
+            const current = heatmap.querySelector('.gh-cell.is-selected') || cells[cells.length - 1];
+            const next = heatmap.querySelector(`.gh-cell[data-date="${offsetDateKey(current.dataset.date, offset)}"]`);
+            if (!next) return;
+            selectFocusDay(next.dataset.date);
+            next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            showFocusAnalysisTooltip(next);
+        }
+
+        function initFocusAnalysisInteractions() {
+            const analysis = getElement('focus-analysis');
+            const heatmap = getElement('focus-heatmap');
+
+            analysis.addEventListener('click', function(event) {
+                const yearButton = event.target.closest('[data-year]');
+                if (yearButton) {
+                    focusCalendarYear = yearButton.dataset.year ? Number(yearButton.dataset.year) : null;
+                    updateFocusAnalysis();
+                    const selectedYear = getElement('focus-heatmap-years').querySelector('.is-selected');
+                    if (selectedYear) selectedYear.focus();
+                    return;
+                }
+
+                const dayTarget = event.target.closest('[data-date]');
+                if (dayTarget) {
+                    selectFocusDay(dayTarget.dataset.date);
+                } else if (event.target.closest('[data-focus-day-action="today"]')) {
+                    selectFocusDay(null);
+                }
+            });
+
+            analysis.addEventListener('mouseover', function(event) {
+                const target = event.target.closest('[data-tip]');
+                if (target && target !== focusTooltipAnchor) showFocusAnalysisTooltip(target);
+            });
+            analysis.addEventListener('mouseout', function(event) {
+                const target = event.target.closest('[data-tip]');
+                if (target && !target.contains(event.relatedTarget)) hideFocusAnalysisTooltip();
+            });
+
+            heatmap.addEventListener('keydown', handleFocusCalendarKeydown);
+            heatmap.addEventListener('focus', function() {
+                const selectedCell = heatmap.querySelector('.gh-cell.is-selected');
+                if (selectedCell && heatmap.matches(':focus-visible')) showFocusAnalysisTooltip(selectedCell);
+            });
+            heatmap.addEventListener('blur', hideFocusAnalysisTooltip);
         }
 
         function updateFocusAnalysis() {
@@ -2832,39 +3267,29 @@
             const previousWeekMs = sumFocusRange(aggregate.totalsByDay, offsetDateKey(endDateKey, -7), 7);
             const currentMonthMs = sumFocusRange(aggregate.totalsByDay, endDateKey, 30);
             const previousMonthMs = sumFocusRange(aggregate.totalsByDay, offsetDateKey(endDateKey, -30), 30);
-            const attributedSourceMs = sourceTotals.countdown + sourceTotals.stopwatch;
+            const streaks = getFocusStreaks(aggregate.totalsByDay, endDateKey);
 
+            getElement('focus-analysis-scope-note').textContent = dayRolloverHour > 0
+                ? `按工作日汇总，凌晨 ${dayRolloverHour} 点前的专注计入前一天。`
+                : '按自然日汇总，零点翻页。';
             getElement('focus-analysis-period-label').textContent = `最近 ${days} 个工作日`;
-            getElement('focus-analysis-total').textContent = formatDurationCompact(totalMs, true);
-            getElement('focus-analysis-average').textContent = formatDurationCompact(totalMs / days, true);
-            getElement('focus-analysis-longest').textContent = formatDurationCompact(longestMs, true);
-            getElement('focus-analysis-active-days').textContent = `${activeDays} 天`;
-            getElement('focus-analysis-week-change').textContent = formatFocusComparison(currentWeekMs, previousWeekMs);
-            getElement('focus-analysis-month-change').textContent = formatFocusComparison(currentMonthMs, previousMonthMs);
-            getElement('focus-analysis-source-ratio').textContent = attributedSourceMs > 0
-                ? `倒计时 ${Math.round(sourceTotals.countdown / attributedSourceMs * 100)}% · 正计时 ${Math.round(sourceTotals.stopwatch / attributedSourceMs * 100)}%`
-                : '暂无来源数据';
+            getElement('focus-analysis-period-range').textContent = `${formatFocusDay(dateKeys[0])} – ${formatFocusDay(endDateKey)}`;
+            getElement('focus-analysis-total').innerHTML = formatFocusDurationHtml(totalMs, true);
+            getElement('focus-analysis-average').innerHTML = formatFocusDurationHtml(totalMs / days, true);
+            getElement('focus-analysis-longest').innerHTML = formatFocusDurationHtml(longestMs, true);
+            getElement('focus-analysis-active-days').innerHTML = `${activeDays}<span class="gh-unit">/ ${days} 天</span>`;
+            setFocusComparison(getElement('focus-analysis-week-change'), getElement('focus-analysis-week-note'), currentWeekMs, previousWeekMs, 7);
+            setFocusComparison(getElement('focus-analysis-month-change'), getElement('focus-analysis-month-note'), currentMonthMs, previousMonthMs, 30);
+            getElement('focus-analysis-current-streak').innerHTML = `${streaks.current.days}<span class="gh-unit">天</span>`;
+            getElement('focus-analysis-current-streak-note').textContent = describeFocusStreak(streaks.current, endDateKey, true);
+            getElement('focus-analysis-longest-streak').innerHTML = `${streaks.longest.days}<span class="gh-unit">天</span>`;
+            getElement('focus-analysis-longest-streak-note').textContent = describeFocusStreak(streaks.longest, endDateKey, false);
 
-            const maxDayMs = Math.max(...dateKeys.map(key => Number(aggregate.totalsByDay[key] || 0)), 1);
-            getElement('focus-trend-bars').innerHTML = dateKeys.map((key, index) => {
-                const durationMs = Number(aggregate.totalsByDay[key] || 0);
-                const height = durationMs > 0 ? Math.max(5, Math.round(durationMs / maxDayMs * 110)) : 2;
-                const showLabel = days === 7 || index % 5 === 0 || index === dateKeys.length - 1;
-                return `
-                    <div style="flex:1; min-width:0; text-align:center;" title="${key} · ${formatDurationCompact(durationMs, true)}">
-                        <div style="height:120px; display:flex; align-items:flex-end; justify-content:center;">
-                            <div style="width:${days === 7 ? '58%' : '72%'}; min-width:3px; height:${height}px; border-radius:6px 6px 2px 2px; background:${getFocusHeatColor(durationMs)};"></div>
-                        </div>
-                        <div class="text-xs text-gray-500" style="height:18px; white-space:nowrap; overflow:hidden;">${showLabel ? key.slice(5) : ''}</div>
-                    </div>
-                `;
-            }).join('');
-
-            const heatKeys = FOCUS_LEDGER_API.dateKeysEndingAt(endDateKey, 84);
-            getElement('focus-heatmap').innerHTML = heatKeys.map(key => {
-                const durationMs = Number(aggregate.totalsByDay[key] || 0);
-                return `<div title="${key} · ${formatDurationCompact(durationMs, true)}" aria-label="${key} ${formatDurationCompact(durationMs, true)}" style="height:18px; border-radius:5px; background:${getFocusHeatColor(durationMs)};"></div>`;
-            }).join('');
+            renderFocusSourceShare(sourceTotals);
+            renderFocusTrend(dateKeys, aggregate.totalsByDay, endDateKey);
+            renderFocusCalendar(aggregate.totalsByDay, endDateKey);
+            renderFocusDayDetail(aggregate.totalsByDay, endDateKey, now);
+            if (focusTooltipAnchor && !focusTooltipAnchor.isConnected) hideFocusAnalysisTooltip();
         }
 
         function updateFocusMigrationNotice() {

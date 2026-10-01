@@ -594,61 +594,147 @@
                         </div>
                     </div>
 
-                    <div id="focus-analysis" data-days="7" class="bg-blue-50 rounded-lg p-4 mb-6">
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                            <div>
-                                <h3 class="text-lg font-semibold text-primary">专注汇总分析</h3>
-                                <p id="focus-analysis-period-label" class="text-sm text-gray-600 mt-1">最近 7 个工作日</p>
+                    <div id="focus-analysis" data-days="7" data-palette="green" class="gh-scope gh-analysis mb-6">
+                        <div class="gh-subhead">
+                            <h3 class="gh-subhead-title"><i class="fa fa-area-chart" aria-hidden="true"></i>专注汇总分析</h3>
+                            <p id="focus-analysis-scope-note" class="gh-subhead-note">按工作日汇总，凌晨 4 点前的专注计入前一天。</p>
+                        </div>
+
+                        <div class="gh-box">
+                            <div class="gh-box-header">
+                                <div class="min-w-0">
+                                    <div id="focus-analysis-period-label" class="gh-box-title">最近 7 个工作日</div>
+                                    <p id="focus-analysis-period-range" class="gh-box-note"></p>
+                                </div>
+                                <div class="gh-segmented" role="group" aria-label="汇总范围">
+                                    <button type="button" class="focus-analysis-range gh-segmented-item is-selected" data-days="7" aria-pressed="true">7 天</button>
+                                    <button type="button" class="focus-analysis-range gh-segmented-item" data-days="30" aria-pressed="false">30 天</button>
+                                </div>
                             </div>
-                            <div class="flex gap-2">
-                                <button class="focus-analysis-range bg-primary text-white py-2 px-4 rounded-lg font-medium" data-days="7">7 天</button>
-                                <button class="focus-analysis-range bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium" data-days="30">30 天</button>
+                            <div class="gh-stat-grid">
+                                <div class="gh-stat">
+                                    <div class="gh-stat-label"><i class="fa fa-clock-o" aria-hidden="true"></i>累计时长</div>
+                                    <div id="focus-analysis-total" class="gh-stat-value">0 分钟</div>
+                                </div>
+                                <div class="gh-stat">
+                                    <div class="gh-stat-label"><i class="fa fa-balance-scale" aria-hidden="true"></i>日均时长</div>
+                                    <div id="focus-analysis-average" class="gh-stat-value">0 分钟</div>
+                                </div>
+                                <div class="gh-stat">
+                                    <div class="gh-stat-label"><i class="fa fa-flag-checkered" aria-hidden="true"></i>最长单次</div>
+                                    <div id="focus-analysis-longest" class="gh-stat-value">0 分钟</div>
+                                </div>
+                                <div class="gh-stat">
+                                    <div class="gh-stat-label"><i class="fa fa-calendar-check-o" aria-hidden="true"></i>活跃天数</div>
+                                    <div id="focus-analysis-active-days" class="gh-stat-value">0 天</div>
+                                </div>
+                            </div>
+                            <div class="gh-box-row">
+                                <div class="gh-row-title">来源占比</div>
+                                <div id="focus-analysis-source-bar" class="gh-progress" aria-hidden="true"></div>
+                                <div id="focus-analysis-source-ratio" class="gh-source-legend">暂无来源数据</div>
+                            </div>
+                            <div class="gh-box-row">
+                                <div class="gh-row-head">
+                                    <div class="gh-row-title">每日趋势</div>
+                                    <div id="focus-trend-summary" class="gh-row-note"></div>
+                                </div>
+                                <div id="focus-trend-bars" class="gh-chart"></div>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">累计时长</div><div id="focus-analysis-total" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">日均时长</div><div id="focus-analysis-average" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">最长单次</div><div id="focus-analysis-longest" class="text-2xl font-bold text-primary mt-1">0 分钟</div></div>
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">活跃天数</div><div id="focus-analysis-active-days" class="text-2xl font-bold text-primary mt-1">0 天</div></div>
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">近 7 天环比</div><div id="focus-analysis-week-change" class="text-xl font-bold text-primary mt-1">持平 0%</div></div>
-                            <div class="bg-white rounded-lg p-4"><div class="text-sm text-gray-600">近 30 天环比</div><div id="focus-analysis-month-change" class="text-xl font-bold text-primary mt-1">持平 0%</div></div>
-                            <div class="bg-white rounded-lg p-4" style="grid-column: span 2;"><div class="text-sm text-gray-600">来源占比</div><div id="focus-analysis-source-ratio" class="text-xl font-bold text-primary mt-1">暂无来源数据</div></div>
-                        </div>
-
-                        <div class="bg-white rounded-lg p-4 mb-4">
-                            <h4 class="font-medium text-gray-800 mb-3">每日趋势</h4>
-                            <div id="focus-trend-bars" class="flex gap-2" style="align-items:flex-end; min-height:142px;"></div>
-                        </div>
-
-                        <div class="bg-white rounded-lg p-4">
-                            <h4 class="font-medium text-gray-800 mb-3">近 12 周绝对时长热力图</h4>
-                            <div id="focus-heatmap" style="display:grid; grid-template-columns:repeat(14,minmax(0,1fr)); gap:6px;"></div>
-                            <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-                                <span>灰：0</span><span>浅蓝：少于 1 小时</span><span>蓝：1–2 小时</span><span>深蓝：2–4 小时</span><span>藏蓝：4 小时以上</span>
+                        <div class="gh-box gh-stat-grid gh-stat-strip">
+                            <div class="gh-stat">
+                                <div class="gh-stat-label"><i class="fa fa-line-chart" aria-hidden="true"></i>近 7 天环比</div>
+                                <div id="focus-analysis-week-change" class="gh-stat-value">持平 0%</div>
+                                <div id="focus-analysis-week-note" class="gh-stat-note">前 7 天：0 分钟</div>
+                            </div>
+                            <div class="gh-stat">
+                                <div class="gh-stat-label"><i class="fa fa-bar-chart" aria-hidden="true"></i>近 30 天环比</div>
+                                <div id="focus-analysis-month-change" class="gh-stat-value">持平 0%</div>
+                                <div id="focus-analysis-month-note" class="gh-stat-note">前 30 天：0 分钟</div>
+                            </div>
+                            <div class="gh-stat">
+                                <div class="gh-stat-label"><i class="fa fa-fire" aria-hidden="true"></i>当前连续</div>
+                                <div id="focus-analysis-current-streak" class="gh-stat-value">0 天</div>
+                                <div id="focus-analysis-current-streak-note" class="gh-stat-note">今天专注即可开启连续</div>
+                            </div>
+                            <div class="gh-stat">
+                                <div class="gh-stat-label"><i class="fa fa-trophy" aria-hidden="true"></i>最长连续</div>
+                                <div id="focus-analysis-longest-streak" class="gh-stat-value">0 天</div>
+                                <div id="focus-analysis-longest-streak-note" class="gh-stat-note">暂无记录</div>
                             </div>
                         </div>
+
+                        <div class="gh-calendar-heading">
+                            <h4 id="focus-heatmap-title" class="gh-calendar-title">过去一年共专注 0 分钟</h4>
+                            <div class="gh-palette">
+                                <span>配色</span>
+                                <div class="gh-segmented gh-segmented-sm" role="group" aria-label="热力图配色">
+                                    <button type="button" class="focus-heatmap-palette gh-segmented-item is-selected" data-palette="green" aria-pressed="true"><span class="gh-swatch" data-swatch="green" aria-hidden="true"></span>GitHub 绿</button>
+                                    <button type="button" class="focus-heatmap-palette gh-segmented-item" data-palette="blue" aria-pressed="false"><span class="gh-swatch" data-swatch="blue" aria-hidden="true"></span>经典蓝</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="gh-calendar-layout">
+                            <div class="gh-box gh-calendar-box">
+                                <div id="focus-heatmap-scroll" class="gh-calendar-scroll">
+                                    <div id="focus-heatmap" class="gh-calendar" tabindex="0" role="group" aria-label="专注日历，可用方向键切换日期"></div>
+                                </div>
+                                <div class="gh-calendar-footer">
+                                    <span id="focus-heatmap-caption">活跃 0 天</span>
+                                    <div class="gh-legend">
+                                        <span>少</span>
+                                        <span class="gh-cell" data-level="0" data-tip="没有专注记录"></span>
+                                        <span class="gh-cell" data-level="1" data-tip="少于 1 小时"></span>
+                                        <span class="gh-cell" data-level="2" data-tip="1–2 小时"></span>
+                                        <span class="gh-cell" data-level="3" data-tip="2–4 小时"></span>
+                                        <span class="gh-cell" data-level="4" data-tip="4 小时及以上"></span>
+                                        <span>多</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="focus-heatmap-years" class="gh-year-list" role="group" aria-label="选择年份"></div>
+                        </div>
+
+                        <div class="gh-activity">
+                            <h4 class="gh-activity-title">专注动态</h4>
+                            <div id="focus-day-detail"></div>
+                        </div>
+
+                        <div id="focus-analysis-tooltip" class="gh-tooltip" role="tooltip" hidden></div>
                     </div>
 
-                    <div id="focus-desktop-settings" class="hidden bg-blue-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-primary mb-2">悬浮窗与桌面设置</h3>
-                        <p class="text-sm text-gray-600 mb-4">悬浮窗只控制正计时；倒计时运行时只显示状态和“打开主应用”。</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <label class="bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-700">
-                                <input id="focus-auto-launch" type="checkbox">
-                                <span>Windows 登录后自动启动，仅显示悬浮窗</span>
-                            </label>
-                            <label class="bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-700">
-                                <input id="focus-shortcut-enabled" type="checkbox">
-                                <span>启用悬浮窗显示/隐藏快捷键</span>
-                            </label>
+                    <div id="focus-desktop-settings" class="hidden gh-scope gh-box">
+                        <div class="gh-box-header">
+                            <div class="min-w-0">
+                                <h3 class="gh-box-title"><i class="fa fa-desktop" aria-hidden="true"></i>悬浮窗与桌面设置</h3>
+                                <p class="gh-box-note">悬浮窗只控制正计时；倒计时运行时只显示状态和“打开主应用”。</p>
+                            </div>
                         </div>
-                        <div class="mt-4 flex flex-col md:flex-row gap-3 md:items-center">
-                            <input id="focus-shortcut" type="text" value="Ctrl+Alt+T" placeholder="例如 Ctrl+Alt+T" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                            <button id="save-focus-desktop-settings" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow">保存桌面设置</button>
-                            <button id="show-focus-floating-window" class="bg-white border border-blue-200 text-primary py-2 px-5 rounded-lg font-medium">显示悬浮窗</button>
+                        <label class="gh-box-row gh-check-row">
+                            <input id="focus-auto-launch" type="checkbox" class="gh-checkbox">
+                            <span class="min-w-0">
+                                <span class="gh-check-title">开机自动启动</span>
+                                <span class="gh-check-note">Windows 登录后自动启动，仅显示悬浮窗</span>
+                            </span>
+                        </label>
+                        <label class="gh-box-row gh-check-row">
+                            <input id="focus-shortcut-enabled" type="checkbox" class="gh-checkbox">
+                            <span class="min-w-0">
+                                <span class="gh-check-title">全局快捷键</span>
+                                <span class="gh-check-note">启用悬浮窗显示/隐藏快捷键</span>
+                            </span>
+                        </label>
+                        <div class="gh-box-row">
+                            <label for="focus-shortcut" class="gh-field-label">快捷键组合</label>
+                            <div class="gh-form-row">
+                                <input id="focus-shortcut" type="text" value="Ctrl+Alt+T" placeholder="例如 Ctrl+Alt+T" class="gh-input">
+                                <button id="save-focus-desktop-settings" type="button" class="gh-btn gh-btn-primary">保存桌面设置</button>
+                                <button id="show-focus-floating-window" type="button" class="gh-btn">显示悬浮窗</button>
+                            </div>
+                            <p id="focus-desktop-status" class="gh-field-note">正在读取桌面设置…</p>
                         </div>
-                        <p id="focus-desktop-status" class="mt-3 text-sm text-gray-500">正在读取桌面设置…</p>
                     </div>
                 </section>
 
