@@ -441,17 +441,22 @@
             return `${formatDisplayTime(range.start)} - ${formatDisplayTime(range.end)}`;
         }
 
+        // 时间段整体不拆行，窄卡片里只在两段之间换行
+        function keepTogetherHtml(text) {
+            return `<span class="whitespace-nowrap">${escapeHtml(text)}</span>`;
+        }
+
         function buildQualifiedLabel(period) {
             const checkInRange = getRule(period, 'checkIn').qualified;
             const checkOutRange = getRule(period, 'checkOut').qualified;
-            return `合格标准: ${formatRuleRange(checkInRange)}上班, ${formatRuleRange(checkOutRange)}下班`;
+            return `合格标准: ${keepTogetherHtml(`${formatRuleRange(checkInRange)}上班`)}, ${keepTogetherHtml(`${formatRuleRange(checkOutRange)}下班`)}`;
         }
 
         function applyRulesToCheckinCard() {
             ['morning', 'afternoon', 'evening'].forEach(period => {
-                getElement(`${period}-checkin-window-label`).textContent = `上班时间: ${formatRuleRange(getEffectiveAllowedRange(period, 'checkIn'))}`;
-                getElement(`${period}-checkout-window-label`).textContent = `下班时间: ${formatRuleRange(getEffectiveAllowedRange(period, 'checkOut'))}`;
-                getElement(`${period}-qualified-label`).textContent = buildQualifiedLabel(period);
+                getElement(`${period}-checkin-window-label`).innerHTML = `上班时间: ${keepTogetherHtml(formatRuleRange(getEffectiveAllowedRange(period, 'checkIn')))}`;
+                getElement(`${period}-checkout-window-label`).innerHTML = `下班时间: ${keepTogetherHtml(formatRuleRange(getEffectiveAllowedRange(period, 'checkOut')))}`;
+                getElement(`${period}-qualified-label`).innerHTML = buildQualifiedLabel(period);
             });
         }
 
@@ -981,6 +986,10 @@
             const minutes = Math.floor((secondsTotal % 3600) / 60);
             const seconds = secondsTotal % 60;
             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function keepDurationUnitsHtml(text) {
+            return escapeHtml(text).replace(/(\d+ (?:小时|分钟|秒))/g, '<span class="whitespace-nowrap">$1</span>');
         }
 
         function formatDurationCompact(durationMs, includeSeconds = false) {
@@ -1588,7 +1597,7 @@
                 hintText.textContent = getSedentaryPhaseHint(null, false);
                 progressBar.style.width = '0%';
                 phaseBadge.textContent = '未开始';
-                phaseBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-600';
+                phaseBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-600 shrink-0 whitespace-nowrap';
                 pauseButton.classList.add('hidden');
                 resumeButton.classList.add('hidden');
                 stopButton.classList.add('hidden');
@@ -1619,13 +1628,13 @@
             if (currentSedentarySession.phase === 'sit') {
                 phaseBadge.textContent = currentSedentarySession.isPaused ? '坐下已暂停' : '坐下中';
                 phaseBadge.className = currentSedentarySession.isPaused
-                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700'
-                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
+                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700 shrink-0 whitespace-nowrap'
+                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700 shrink-0 whitespace-nowrap';
             } else {
                 phaseBadge.textContent = currentSedentarySession.isPaused ? '站立已暂停' : '站立中';
                 phaseBadge.className = currentSedentarySession.isPaused
-                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700'
-                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+                    ? 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700 shrink-0 whitespace-nowrap'
+                    : 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700 shrink-0 whitespace-nowrap';
             }
 
             stopButton.classList.remove('hidden');
@@ -2927,8 +2936,8 @@
 
             getElement('focus-today-total').textContent = formatDurationClock(totalMs);
             getElement('focus-today-count').textContent = sessionItems.length;
-            getElement('focus-today-countdown').textContent = formatDurationCompact(sourceTotals.countdown);
-            getElement('focus-today-stopwatch').textContent = formatDurationCompact(sourceTotals.stopwatch);
+            getElement('focus-today-countdown').innerHTML = keepDurationUnitsHtml(formatDurationCompact(sourceTotals.countdown));
+            getElement('focus-today-stopwatch').innerHTML = keepDurationUnitsHtml(formatDurationCompact(sourceTotals.stopwatch));
             getElement('today-focus-duration').textContent = `${Math.floor(totalMs / FOCUS_LEDGER_API.MINUTE_MS)} 分钟`;
 
             if (options.records === false) return;
@@ -5146,35 +5155,31 @@
             scheduleContent.innerHTML = '';
             const fragment = document.createDocumentFragment();
             
-            // 计算时间块高度 (总高度 / 18小时 = 每小时高度)
-            const totalHeight = 384; // 96 * 4 = 384px
-            const hourHeight = totalHeight / 18; // 6:00 - 24:00 共18小时
-            
+            // 6:00 - 24:00 共 18 小时，按内容区高度的百分比定位，和左侧刻度对齐
+            const dayStartMinutes = 6 * 60;
+            const dayTotalMinutes = 18 * 60;
+            const toPercent = minutes => Math.min(Math.max(minutes - dayStartMinutes, 0), dayTotalMinutes) / dayTotalMinutes * 100;
+
             tasks.forEach(task => {
                 // 解析开始时间和结束时间
                 const [startHour, startMinute] = task.startTime.split(':').map(Number);
                 const [endHour, endMinute] = task.endTime.split(':').map(Number);
-                
-                // 计算顶部位置 (相对于6:00的偏移)
-                const startOffset = (startHour - 6) + (startMinute / 60);
-                const top = startOffset * hourHeight;
-                
-                // 计算高度
-                const durationHours = (endHour - startHour) + ((endMinute - startMinute) / 60);
-                const height = durationHours * hourHeight;
-                
-                // 创建任务块
+                const top = toPercent(startHour * 60 + startMinute);
+                const height = Math.max(toPercent(endHour * 60 + endMinute) - top, 0);
+
+                // 创建任务块：名称和时间放在同一行，块再矮也不会溢出
                 const taskBlock = document.createElement('div');
-                taskBlock.className = 'absolute left-0 right-0 bg-primary/80 text-white p-2 rounded-md shadow-md cursor-pointer hover:bg-primary transition-colors';
-                taskBlock.style.top = `${top}px`;
-                taskBlock.style.height = `${height}px`;
-                taskBlock.style.minHeight = '30px'; // 最小高度
-                
+                taskBlock.className = 'absolute left-0 right-0 bg-primary/80 text-white px-2 py-0.5 rounded-md shadow-md cursor-pointer hover:bg-primary transition-colors overflow-hidden flex items-start gap-2';
+                taskBlock.style.top = `${top}%`;
+                taskBlock.style.height = `${height}%`;
+                taskBlock.style.minHeight = '24px'; // 最小高度
+                taskBlock.title = `${task.name} ${task.startTime} - ${task.endTime}`;
+
                 taskBlock.innerHTML = `
-                    <div class="font-medium text-sm truncate">${task.name}</div>
-                    <div class="text-xs opacity-80">${task.startTime} - ${task.endTime}</div>
+                    <span class="font-medium text-sm truncate">${escapeHtml(task.name)}</span>
+                    <span class="text-xs opacity-80 leading-5 shrink-0">${escapeHtml(task.startTime)} - ${escapeHtml(task.endTime)}</span>
                 `;
-                
+
                 fragment.appendChild(taskBlock);
             });
 

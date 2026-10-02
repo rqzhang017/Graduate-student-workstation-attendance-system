@@ -318,6 +318,18 @@
             }
         }
 
+/* 表格不逐字换行：表头和时间、状态等短内容保持一行，窄屏放不下时横向滚动；任务名称和请假理由允许换行但保留最小宽度 */
+body table th,
+body table td {
+    white-space: nowrap;
+}
+
+body #today-tasks-table td:first-child,
+body #leave-records-table td:nth-child(2) {
+    min-width: 8em;
+    white-space: normal;
+}
+
 /* 陪伴橘猫：可交互的猫咪舞台，素材见 docs/ASSETS.md */
 .cat-stage {
     position: relative;
