@@ -210,4 +210,4 @@ npx tailwindcss -c ./tailwind.config.cjs -i ./assets/tailwind-input.css -o ./ass
 
 ## License
 
-本项目采用 [PolyForm Noncommercial License 1.0.0](./LICENSE)，仅允许个人、科研、教育和其他非商业用途。
+本项目采用 [MIT License](./LICENSE)。
