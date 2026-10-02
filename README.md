@@ -17,7 +17,7 @@
 - `规则设置`：支持配置可打卡时间窗、合格时间窗和工作日翻页时刻，保存后立即重算展示。
 - `专注时长`：支持倒计时与正计时双模式、可选名称、暂停/继续、补录编辑、7/30 天汇总、GitHub 风格专注日历（按年查看、连续天数、点击查看当日明细）和猫粮兑换；两种模式写入同一专注账本。
 - `休息计时`：支持自定义休息倒计时、暂停继续、提前结束记录和休息结束提醒。
-- `猫咪陪伴`：根据专注时长兑换猫粮，支持喂食、好感度、表情、台词和点击互动；猫咪使用 DockCat 默认猫咪 PNG 素材，包含 loaf、side、happy、stretch、feed 多个姿势。
+- `猫咪陪伴`：根据专注时长兑换猫粮的原创可交互橘猫：点一点打招呼，按住来回拖动撸猫（呼噜、冒爱心、翻肚皮），拖小鱼干喂食，扔毛线球逗它玩；还会随专注、打卡、闲置和昼夜自动切换看书、庆祝、揣手手、睡觉等 17 种姿势。
 - `久坐提醒`：支持 45 分钟坐下 + 5 分钟站立的自动循环，并保存每日站立统计。
 - `任务管理`：支持任务开始/结束和任务时长统计。
 - `手机克制`：快速记录克制次数，并支持成就反馈。
@@ -110,7 +110,7 @@ npm run build:win:portable
 │   ├── app.js                         # 业务逻辑与交互
 │   ├── app.css                        # 已编译的本地静态样式
 │   ├── focus-ledger.js                # 倒计时/正计时统一会话账本与跨工作日汇总
-│   ├── dockcat/                       # DockCat 默认猫咪 PNG 素材
+│   ├── orange-cat/                    # 陪伴橘猫的 17 种姿势与道具（WebP）
 │   └── tailwind-input.css             # Tailwind 源样式，供后续维护时重新编译
 ├── electron/
 │   ├── main.cjs                       # Electron 主进程、托盘和系统提醒
@@ -197,8 +197,7 @@ npx tailwindcss -c ./tailwind.config.cjs -i ./assets/tailwind-input.css -o ./ass
 
 ## 素材说明
 
-- 陪伴猫咪使用 [DockCat](https://github.com/Auwuua/DockCat) 默认猫咪 PNG 素材，并按本项目的猫粮、好感度、台词和统计逻辑进行展示。
-- DockCat 使用 [PolyForm Noncommercial License 1.0.0](https://github.com/Auwuua/DockCat/blob/main/LICENSE.txt)，本项目仅用于个人、科研和非商业场景。
+- 陪伴橘猫由项目作者使用 ChatGPT 图像生成创作，并按本项目的猫粮、好感度、台词和统计逻辑进行展示。
 - 第三方素材来源和授权记录见 [docs/ASSETS.md](docs/ASSETS.md)。
 
 ## Roadmap

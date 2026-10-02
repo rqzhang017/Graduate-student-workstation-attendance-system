@@ -196,35 +196,57 @@
 
                     <div class="mt-6">
                         <div class="bg-blue-50 rounded-lg p-5 cat-card">
-                            <div class="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-6 items-center">
-                                <button type="button" id="cat-figure-button" class="cat-figure" data-expression="curious" aria-label="摸摸猫咪">
-                                    <div class="cat-heart-burst" id="cat-heart-burst"></div>
-                                    <div class="cat-spark">✦</div>
-                                    <div class="dockcat-stage" aria-hidden="true">
-                                        <img class="dockcat-image dockcat-image-loaf" src="./assets/dockcat/loaf.png" alt="" draggable="false">
-                                        <img class="dockcat-image dockcat-image-side" src="./assets/dockcat/side.png" alt="" draggable="false">
-                                        <img class="dockcat-image dockcat-image-happy" src="./assets/dockcat/happy.png" alt="" draggable="false">
-                                        <img class="dockcat-image dockcat-image-stretch" src="./assets/dockcat/stretch.png" alt="" draggable="false">
-                                        <img class="dockcat-image dockcat-image-feed" src="./assets/dockcat/feed.png" alt="" draggable="false">
-                                        <div class="dockcat-love-badge">♥</div>
-                                        <div class="dockcat-feed-bowl">
-                                            <span></span>
-                                            <span></span>
-                                            <span></span>
-                                        </div>
-                                    </div>
-                                </button>
+                            <div class="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)] gap-6 items-center">
                                 <div>
-                                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                                        <div>
+                                    <div id="cat-stage" class="cat-stage" data-time="day" data-pose="sit">
+                                        <div class="cat-stage-floor" aria-hidden="true"></div>
+                                        <button type="button" id="cat-figure-button" class="cat-figure" data-pose="sit" aria-label="橘猫：点一下打招呼，按住来回拖动可以撸猫">
+                                            <span class="cat-body">
+                                                <span class="cat-pop">
+                                                    <img class="cat-pose is-active" data-pose="sit" src="./assets/orange-cat/sit.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="blink" src="./assets/orange-cat/blink.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="curious" src="./assets/orange-cat/curious.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="petted" src="./assets/orange-cat/petted.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="happy" src="./assets/orange-cat/happy.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="eat" src="./assets/orange-cat/eat.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="sleep" src="./assets/orange-cat/sleep.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="stretch" src="./assets/orange-cat/stretch.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="belly" src="./assets/orange-cat/belly.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="play" src="./assets/orange-cat/play.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="meow" src="./assets/orange-cat/meow.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="grumpy" src="./assets/orange-cat/grumpy.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="loaf" src="./assets/orange-cat/loaf.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="surprised" src="./assets/orange-cat/surprised.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="sad" src="./assets/orange-cat/sad.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="study" src="./assets/orange-cat/study.webp" alt="" draggable="false">
+                                                    <img class="cat-pose" data-pose="celebrate" src="./assets/orange-cat/celebrate.webp" alt="" draggable="false">
+                                                </span>
+                                            </span>
+                                        </button>
+                                        <div class="cat-zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
+                                        <div id="cat-heart-burst" class="cat-effects" aria-hidden="true"></div>
+                                        <div id="cat-bubble" class="cat-bubble" hidden></div>
+                                        <button type="button" id="cat-yarn" class="cat-prop cat-yarn" aria-label="毛线球：拖动后松手扔给猫咪">
+                                            <img src="./assets/orange-cat/yarn.webp" alt="" draggable="false">
+                                        </button>
+                                        <button type="button" id="cat-fish" class="cat-prop cat-fish" aria-label="小鱼干：拖到猫咪身上喂它">
+                                            <img src="./assets/orange-cat/fish.webp" alt="" draggable="false">
+                                            <span id="cat-fish-count" class="cat-fish-count">0</span>
+                                        </button>
+                                    </div>
+                                    <p class="cat-stage-tip">点一点打招呼 · 按住来回拖动撸猫 · 拖小鱼干喂它 · 扔毛线球逗它</p>
+                                </div>
+                                <div class="cat-panel">
+                                    <div class="cat-panel-head mb-4">
+                                        <div class="min-w-0">
                                             <h3 class="text-xl font-semibold text-primary">今日陪伴猫咪</h3>
                                             <p id="cat-mood-text" class="text-sm text-gray-600 mt-1">先专注一会儿，换猫粮来喂它吧。</p>
                                         </div>
-                                        <button id="feed-cat-button" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all">
+                                        <button id="feed-cat-button" class="bg-primary hover:bg-primary/90 text-white py-2 px-5 rounded-lg font-medium btn-shadow transition-all whitespace-nowrap">
                                             喂猫咪 1 个猫粮
                                         </button>
                                     </div>
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div class="grid grid-cols-2 gap-3 cat-stats">
                                         <div class="bg-white rounded-lg p-4 text-center">
                                             <div class="text-2xl font-bold text-primary" id="cat-today-focus-hours">0</div>
                                             <div class="text-xs text-gray-600 mt-1">今日专注小时</div>

@@ -316,490 +316,378 @@
                 box-shadow: 0 32px 80px rgba(15,23,42,0.18);
                 backdrop-filter: blur(20px);
             }
-
-            .cat-card {
-                position: relative;
-                overflow: hidden;
-            }
-
-            .cat-card::after {
-                content: '';
-                position: absolute;
-                right: -2rem;
-                bottom: -2rem;
-                width: 9rem;
-                height: 9rem;
-                border-radius: 9999px;
-                background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0) 72%);
-                pointer-events: none;
-            }
-
-            .cat-figure {
-                position: relative;
-                width: 172px;
-                height: 172px;
-                margin: 0 auto;
-                cursor: pointer;
-                background: transparent;
-                border: 0;
-                padding: 0;
-                transition: transform 0.2s ease;
-            }
-
-            .cat-figure:hover {
-                transform: translateY(-2px) scale(1.02);
-            }
-
-            .cat-svg {
-                width: 100%;
-                height: 100%;
-                overflow: visible;
-                filter: drop-shadow(0 20px 26px rgba(245, 158, 11, 0.10));
-            }
-
-            .cat-outline {
-                stroke: rgba(146, 98, 46, 0.24);
-                stroke-width: 2.2;
-                stroke-linecap: round;
-                stroke-linejoin: round;
-            }
-
-            .cat-cream {
-                fill: #fff5e8;
-            }
-
-            .cat-orange {
-                fill: #ffd4a8;
-            }
-
-            .cat-orange-soft {
-                fill: #ffe6c9;
-            }
-
-            .cat-pink {
-                fill: #ffb9c7;
-            }
-
-            .cat-dark {
-                fill: #243042;
-            }
-
-            .cat-whisker {
-                stroke: rgba(146, 98, 46, 0.52);
-                stroke-width: 1.8;
-                stroke-linecap: round;
-            }
-
-            .cat-eye-shape {
-                transform-origin: center;
-                transition: all 0.24s ease;
-            }
-
-            .cat-mouth-line {
-                stroke: #9a5b2c;
-                stroke-width: 2.4;
-                stroke-linecap: round;
-                fill: none;
-                transition: all 0.24s ease;
-            }
-
-            .cat-ear-group,
-            .cat-head-group,
-            .cat-tail-group {
-                transform-box: fill-box;
-                transform-origin: center;
-            }
-
-            .cat-head-group {
-                transform-origin: 50% 58%;
-            }
-
-            .cat-ear-group {
-                transform-origin: 50% 86%;
-            }
-
-            .cat-tail-group {
-                transform-origin: 35% 85%;
-                animation: catTailSwish 2.8s ease-in-out infinite;
-            }
-
-            .cat-figure[data-expression="curious"] .cat-eye-shape {
-                transform: scale(1, 1.08);
-            }
-
-            .cat-figure[data-expression="happy"] .cat-eye-open,
-            .cat-figure[data-expression="trusting"] .cat-eye-open {
-                opacity: 0;
-            }
-
-            .cat-figure[data-expression="happy"] .cat-eye-smile,
-            .cat-figure[data-expression="trusting"] .cat-eye-smile {
-                opacity: 1;
-            }
-
-            .cat-figure[data-expression="trusting"] .cat-mouth-smile {
-                opacity: 0;
-            }
-
-            .cat-figure[data-expression="trusting"] .cat-mouth-big-smile {
-                opacity: 1;
-            }
-
-            .cat-figure[data-expression="adoring"] .cat-eye-open {
-                opacity: 0;
-            }
-
-            .cat-figure[data-expression="adoring"] .cat-eye-smile {
-                opacity: 0;
-            }
-
-            .cat-figure[data-expression="adoring"] .cat-eye-heart {
-                opacity: 1;
-            }
-
-            .cat-figure[data-expression="adoring"] .cat-mouth-smile {
-                opacity: 0;
-            }
-
-            .cat-figure[data-expression="adoring"] .cat-mouth-big-smile {
-                opacity: 1;
-            }
-
-            .cat-heart-burst {
-                position: absolute;
-                inset: 0;
-                pointer-events: none;
-                overflow: visible;
-            }
-
-            .cat-heart {
-                position: absolute;
-                left: 50%;
-                bottom: 38px;
-                font-size: 18px;
-                opacity: 0;
-                transform: translate(-50%, 0) scale(0.7);
-                animation: catHeartFloat 1.4s ease-out forwards;
-                filter: drop-shadow(0 6px 10px rgba(251, 113, 133, 0.24));
-            }
-
-            .cat-spark {
-                position: absolute;
-                right: 0.5rem;
-                top: 0.2rem;
-                width: 2rem;
-                height: 2rem;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 1rem;
-                color: #f59e0b;
-                opacity: 0;
-                transform: scale(0.7) rotate(-18deg);
-                transition: opacity 0.2s ease, transform 0.2s ease;
-            }
-
-            .cat-figure.is-petted {
-                animation: catPetBounce 0.72s ease;
-            }
-
-            .cat-figure.is-petted .cat-head-group {
-                animation: catHeadNuzzle 0.72s ease;
-            }
-
-            .cat-figure.is-petted .cat-ear-group {
-                animation: catEarWiggle 0.72s ease;
-            }
-
-            .cat-figure.is-petted .cat-tail-group {
-                animation: catTailSwishFast 0.6s ease-in-out 2;
-            }
-
-            .cat-figure.is-fed {
-                animation: catFedBounce 0.9s ease;
-            }
-
-            .cat-figure.is-fed .cat-spark {
-                opacity: 1;
-                transform: scale(1.05) rotate(0deg);
-            }
-
-            @keyframes catTailSwish {
-                0%, 100% { transform: rotate(2deg); }
-                50% { transform: rotate(16deg); }
-            }
-
-            @keyframes catTailSwishFast {
-                0%, 100% { transform: rotate(2deg); }
-                50% { transform: rotate(24deg); }
-            }
-
-            @keyframes catPetBounce {
-                0% { transform: translateY(0) scale(1); }
-                35% { transform: translateY(-8px) scale(1.03); }
-                65% { transform: translateY(0) scale(0.99); }
-                100% { transform: translateY(0) scale(1); }
-            }
-
-            @keyframes catFedBounce {
-                0% { transform: translateY(0) scale(1); }
-                30% { transform: translateY(-10px) scale(1.06); }
-                60% { transform: translateY(0) scale(1); }
-                100% { transform: translateY(0) scale(1); }
-            }
-
-            @keyframes catHeadNuzzle {
-                0% { transform: translateY(0) rotate(0deg) scale(1); }
-                28% { transform: translateY(-2px) rotate(-5deg) scale(1.02); }
-                58% { transform: translateY(1px) rotate(4deg) scale(1.01); }
-                100% { transform: translateY(0) rotate(0deg) scale(1); }
-            }
-
-            @keyframes catEarWiggle {
-                0% { transform: rotate(0deg); }
-                30% { transform: rotate(-4deg); }
-                60% { transform: rotate(3deg); }
-                100% { transform: rotate(0deg); }
-            }
-
-            @keyframes catHeartFloat {
-                0% {
-                    opacity: 0;
-                    transform: translate(-50%, 10px) scale(0.7);
-                }
-                15% {
-                    opacity: 1;
-                }
-                100% {
-                    opacity: 0;
-                    transform: translate(calc(-50% + var(--heart-x, 0px)), -78px) scale(1.15);
-                }
-            }
         }
 
-/* DockCat default cat assets, used under PolyForm Noncommercial License 1.0.0. */
+/* 陪伴橘猫：可交互的猫咪舞台，素材见 docs/ASSETS.md */
+.cat-stage {
+    position: relative;
+    height: 300px;
+    overflow: hidden;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 46%),
+        linear-gradient(180deg, #fff6ea 0%, #ffe7cf 62%, #ffd6b0 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 -24px 40px rgba(214, 130, 70, 0.1);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.cat-stage[data-time="night"] {
+    background:
+        radial-gradient(circle at 80% 15%, #fff4d6 0 13px, rgba(255, 244, 214, 0.28) 14px, rgba(255, 244, 214, 0) 34px),
+        radial-gradient(circle at 50% 30%, #3e4a74 0%, #2b3459 62%, #1f2647 100%);
+}
+
+.cat-stage-floor {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    width: 210px;
+    height: 32px;
+    margin-left: -105px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(176, 98, 40, 0.26) 0%, rgba(176, 98, 40, 0) 70%);
+}
+
+.cat-stage[data-time="night"] .cat-stage-floor {
+    background: radial-gradient(ellipse at center, rgba(8, 12, 30, 0.45) 0%, rgba(8, 12, 30, 0) 70%);
+}
+
 .cat-figure {
-    width: 232px;
-    height: 210px;
-    isolation: isolate;
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    z-index: 1;
+    width: 236px;
+    height: 236px;
+    margin-left: -118px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    cursor: grab;
+    transform: rotate(var(--cat-lean, 0deg)) scaleX(var(--cat-face, 1));
+    transform-origin: 50% 94%;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.cat-figure:hover {
-    transform: translateY(-3px) scale(1.012);
+.cat-figure:active {
+    cursor: grabbing;
 }
 
-.dockcat-stage {
+.cat-figure:focus-visible {
+    outline: 3px solid rgba(249, 115, 22, 0.55);
+    outline-offset: -8px;
+    border-radius: 32px;
+}
+
+.cat-body,
+.cat-pop {
     position: absolute;
     inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    filter: drop-shadow(0 18px 24px rgba(84, 58, 36, 0.13));
+    display: block;
+    transform-origin: 50% 94%;
 }
 
-.dockcat-stage::after {
-    content: "";
-    position: absolute;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    z-index: -1;
-    height: 18px;
-    border-radius: 999px;
-    background: rgba(37, 99, 235, 0.1);
-    filter: blur(5px);
+.cat-body {
+    animation: catBreath 3.4s ease-in-out infinite;
 }
 
-.dockcat-image {
+.cat-figure[data-pose="sleep"] .cat-body {
+    animation-duration: 4.8s;
+}
+
+.cat-figure[data-pose="celebrate"] .cat-body {
+    animation: catHop 0.7s ease-in-out infinite;
+}
+
+.cat-figure.is-purring .cat-body {
+    animation: catPurr 0.12s linear infinite;
+}
+
+.cat-pop.is-pop {
+    animation: catPop 0.34s ease-out;
+}
+
+.cat-pose {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;
     opacity: 0;
-    transform-origin: 50% 78%;
-    transition: opacity 0.16s ease, transform 0.2s ease;
-    user-select: none;
+    pointer-events: none;
+    transition: opacity 0.12s linear;
 }
 
-.cat-figure[data-expression="curious"] .dockcat-image-loaf,
-.cat-figure[data-expression="happy"] .dockcat-image-happy,
-.cat-figure[data-expression="trusting"] .dockcat-image-side,
-.cat-figure[data-expression="adoring"] .dockcat-image-happy {
+.cat-pose.is-active {
     opacity: 1;
 }
 
-.cat-figure.is-petted .dockcat-image,
-.cat-figure.is-fed .dockcat-image {
-    opacity: 0 !important;
-}
-
-.cat-figure.is-petted .dockcat-image-stretch {
-    opacity: 1 !important;
-    animation: dockcatStretch 0.76s ease;
-}
-
-.cat-figure.is-fed .dockcat-image-feed {
-    opacity: 1 !important;
-    animation: dockcatFeed 0.95s ease;
-}
-
-.dockcat-image-side {
-    transform: translateY(5px) scale(1.04);
-}
-
-.dockcat-image-happy {
-    transform: translateY(-6px) scale(0.94);
-}
-
-.dockcat-image-stretch {
-    transform: translateY(10px) scale(1.08);
-}
-
-.dockcat-image-feed {
-    transform: translateY(12px) scale(1.08);
-}
-
-.cat-heart-burst {
-    z-index: 5;
-}
-
-.cat-spark {
-    z-index: 6;
-    right: 0.9rem;
-    top: 0.65rem;
-    color: #f59e0b;
-}
-
-.cat-heart {
-    bottom: 92px;
-    font-size: 21px;
-}
-
-.dockcat-love-badge {
+.cat-bubble {
     position: absolute;
-    top: 16px;
-    right: 24px;
-    z-index: 4;
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.86);
-    box-shadow: 0 10px 24px rgba(244, 63, 94, 0.18);
-    color: #fb7185;
-    font-size: 19px;
-    opacity: 0;
-    transform: scale(0.72) rotate(-8deg);
-}
-
-.cat-figure[data-expression="adoring"] .dockcat-love-badge {
-    opacity: 1;
-    animation: dockcatLovePulse 1.6s ease-in-out infinite;
-}
-
-.dockcat-feed-bowl {
-    position: absolute;
+    top: 14px;
     left: 50%;
-    bottom: 6px;
     z-index: 4;
-    width: 78px;
-    height: 28px;
-    border-radius: 10px 10px 18px 18px;
-    background: linear-gradient(135deg, #dbeafe, #93c5fd);
-    border: 2px solid rgba(37, 99, 235, 0.18);
-    box-shadow: inset 0 6px 10px rgba(255, 255, 255, 0.55);
-    opacity: 0;
-    transform: translateX(-50%) translateY(8px) scale(0.9);
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #7c3f12;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(180, 100, 40, 0.18);
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
-.dockcat-feed-bowl::before {
+.cat-bubble::after {
     content: "";
     position: absolute;
-    left: -5px;
-    right: -5px;
-    top: -7px;
-    height: 15px;
-    border-radius: 999px;
-    background: #eff6ff;
-    border: 2px solid rgba(37, 99, 235, 0.14);
+    bottom: -5px;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    background: #ffffff;
+    border-radius: 2px;
+    transform: rotate(45deg);
 }
 
-.dockcat-feed-bowl span {
+.cat-bubble.is-showing {
+    animation: catBubbleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cat-effects {
     position: absolute;
-    top: -12px;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.cat-effect {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0;
+    animation: catEffectFloat 1.3s ease-out forwards;
+}
+
+.cat-effect-heart { color: #fb7185; }
+.cat-effect-note { color: #f59e0b; }
+.cat-effect-spark { color: #fbbf24; font-size: 22px; }
+.cat-effect-anger { top: 26%; font-size: 22px; }
+
+.cat-zzz {
+    position: absolute;
+    top: 34%;
+    left: 34%;
+    z-index: 3;
+    display: none;
+    font-weight: 800;
+    color: #8b9cc8;
+    pointer-events: none;
+}
+
+.cat-stage[data-pose="sleep"] .cat-zzz {
+    display: block;
+}
+
+.cat-zzz span {
+    position: absolute;
+    font-size: 16px;
+    opacity: 0;
+    animation: catZzz 3s ease-in infinite;
+}
+
+.cat-zzz span:nth-child(2) {
+    font-size: 20px;
+    animation-delay: 1s;
+}
+
+.cat-zzz span:nth-child(3) {
+    font-size: 24px;
+    animation-delay: 2s;
+}
+
+.cat-prop {
+    position: absolute;
     z-index: 2;
-    width: 8px;
-    height: 8px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    cursor: grab;
+    touch-action: none;
+    transition: transform 0.3s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.cat-prop img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 6px rgba(150, 80, 30, 0.2));
+}
+
+.cat-prop.is-dragging,
+.cat-prop.is-rolling {
+    z-index: 5;
+    cursor: grabbing;
+    transition: none;
+}
+
+.cat-prop:focus-visible {
+    outline: 3px solid rgba(249, 115, 22, 0.55);
+    outline-offset: 2px;
+    border-radius: 12px;
+}
+
+.cat-yarn {
+    bottom: 18px;
+    left: 18px;
+    width: 52px;
+}
+
+.cat-fish {
+    right: 16px;
+    bottom: 24px;
+    width: 70px;
+}
+
+.cat-fish.is-empty {
+    cursor: not-allowed;
+    opacity: 0.45;
+    filter: grayscale(0.85);
+}
+
+.cat-fish-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    color: #ffffff;
+    background: #f97316;
     border-radius: 999px;
-    background: #f59e0b;
+    box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4);
 }
 
-.dockcat-feed-bowl span:nth-child(1) {
-    left: 22px;
+.cat-fish.is-empty .cat-fish-count {
+    background: #94a3b8;
+    box-shadow: none;
 }
 
-.dockcat-feed-bowl span:nth-child(2) {
-    left: 36px;
-    top: -15px;
+.cat-stage-tip {
+    margin-top: 8px;
+    font-size: 12px;
+    text-align: center;
+    color: #a0704e;
 }
 
-.dockcat-feed-bowl span:nth-child(3) {
-    left: 50px;
+/* 舞台很窄（手机）时缩小猫咪和道具，避免互相遮挡 */
+.cat-stage {
+    container-type: inline-size;
 }
 
-.cat-figure.is-fed .dockcat-feed-bowl {
-    opacity: 1;
-    animation: dockcatBowlPop 0.95s ease;
+@container (max-width: 340px) {
+    .cat-figure {
+        width: 196px;
+        height: 196px;
+        margin-left: -98px;
+    }
+
+    .cat-yarn {
+        left: 8px;
+        width: 42px;
+    }
+
+    .cat-fish {
+        right: 8px;
+        width: 56px;
+    }
 }
 
-.cat-figure.is-fed .dockcat-feed-bowl span {
-    animation: dockcatFoodPop 0.95s ease;
+/* 右侧统计区按自身宽度排版：够宽时一行四格，窄时两行两格 */
+.cat-panel {
+    container-type: inline-size;
+    min-width: 0;
 }
 
-@keyframes catPetBounce {
-    0% { transform: translateY(0) scale(1); }
-    35% { transform: translateY(-4px) scale(1.014); }
-    70% { transform: translateY(1px) scale(0.998); }
-    100% { transform: translateY(0) scale(1); }
+.cat-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
-@keyframes catFedBounce {
-    0% { transform: translateY(0) scale(1); }
-    32% { transform: translateY(-6px) scale(1.02); }
-    68% { transform: translateY(1px) scale(1); }
-    100% { transform: translateY(0) scale(1); }
+@container (min-width: 520px) {
+    .cat-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
-@keyframes dockcatStretch {
-    0% { transform: translateY(10px) scale(1.08); }
-    38% { transform: translateY(6px) translateX(-2px) scale(1.105, 1.03); }
-    70% { transform: translateY(11px) translateX(1px) scale(1.07); }
-    100% { transform: translateY(10px) scale(1.08); }
+@keyframes catBreath {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.008, 1.018); }
 }
 
-@keyframes dockcatFeed {
-    0% { transform: translateY(12px) scale(1.08); }
-    35% { transform: translateY(5px) scale(1.1); }
-    66% { transform: translateY(14px) scale(1.075); }
-    100% { transform: translateY(12px) scale(1.08); }
+@keyframes catPop {
+    0% { transform: scale(0.94, 1.06); }
+    55% { transform: scale(1.04, 0.96); }
+    100% { transform: scale(1, 1); }
 }
 
-@keyframes dockcatLovePulse {
-    0%, 100% { transform: scale(0.9) rotate(-8deg); opacity: 0.82; }
-    50% { transform: scale(1.08) rotate(4deg); opacity: 1; }
+@keyframes catPurr {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-0.8px) rotate(-0.4deg); }
+    75% { transform: translateX(0.8px) rotate(0.4deg); }
 }
 
-@keyframes dockcatBowlPop {
-    0% { transform: translateX(-50%) translateY(12px) scale(0.82); opacity: 0; }
-    28% { transform: translateX(-50%) translateY(0) scale(1.04); opacity: 1; }
-    100% { transform: translateX(-50%) translateY(8px) scale(0.9); opacity: 0; }
+@keyframes catHop {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-16px); }
 }
 
-@keyframes dockcatFoodPop {
-    0%, 100% { transform: translateY(0) scale(1); }
-    32% { transform: translateY(-5px) scale(1.18); }
-    62% { transform: translateY(1px) scale(0.96); }
+@keyframes catBubbleIn {
+    from { opacity: 0; transform: translate(-50%, 6px) scale(0.85); }
+    to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes catEffectFloat {
+    0% { opacity: 0; transform: translate(-50%, 0) scale(0.6) rotate(0deg); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--fx-x, 0px)), -96px) scale(1.15) rotate(var(--fx-rot, 0deg)); }
+}
+
+@keyframes catZzz {
+    0% { opacity: 0; transform: translate(0, 0); }
+    20% { opacity: 1; }
+    100% { opacity: 0; transform: translate(28px, -64px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cat-body,
+    .cat-pop,
+    .cat-effect,
+    .cat-zzz span,
+    .cat-bubble.is-showing {
+        animation: none !important;
+    }
+
+    .cat-figure {
+        transition: none;
+    }
 }
 
 /* 专注汇总分析与桌面设置：GitHub Primer 风格 */

@@ -23,6 +23,21 @@
         let sedentaryTimer = null; // 久坐提醒计时器
         let catMessageTimer = null; // 猫咪临时台词计时器
         let catTemporaryMessage = ''; // 猫咪临时台词
+        let catAction = null; // 猫咪当前的临时动作 { pose }
+        let catActionTimer = null; // 临时动作结束计时器
+        let catBubbleTimer = null; // 猫咪对话气泡隐藏计时器
+        let catSleeping = false; // 猫咪是否睡着
+        let catHovering = false; // 鼠标是否停在猫咪舞台上
+        let catLastActiveAt = Date.now(); // 最近一次和猫咪互动的时间
+        let catPokeTimes = []; // 最近几次戳猫咪的时间
+        let catStroke = null; // 撸猫手势状态
+        let catSuppressClick = false; // 撸猫结束后忽略随之触发的点击
+        let catFishDrag = null; // 小鱼干拖拽状态
+        let catSuppressFishClick = false; // 拖完小鱼干后忽略随之触发的点击
+        let catYarn = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, dragging: false, moved: false, samples: [], frame: null, batted: false, bats: 0 }; // 毛线球位置与速度
+        let catSuppressYarnClick = false; // 扔完毛线球后忽略随之触发的点击
+        let catWasFocusing = false; // 上次刷新时是否正在专注
+        let catFacing = 1; // 猫咪朝向：1 向右，-1 向左
         let focusReminderAudioContext = null; // 专注完成声音提醒
         let focusReminderSoundTimer = null; // 专注完成声音循环
         let focusTitleTimer = null; // 专注完成标题闪烁
@@ -54,6 +69,12 @@
         const CHECKIN_REMINDER_LEAD_MINUTES = 10;
         const FOCUS_LONG_WARNING_MS = 12 * 60 * 60 * 1000;
         const FOCUS_WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const CAT_LOAF_AFTER_MS = 40 * 1000;
+        const CAT_SLEEP_AFTER_MS = 3 * 60 * 1000;
+        const CAT_NIGHT_SLEEP_AFTER_MS = 75 * 1000;
+        const CAT_MAX_YARN_BATS = 3;
+        const CAT_POKE_LINES = ['喵~', '喵呜？', '在呢在呢~', '找我玩吗？', '今天也要加油哦', '摸摸头再走嘛'];
+        const CAT_EFFECT_SYMBOLS = { heart: ['❤', '♡'], note: ['♪', '♫'], spark: ['✦', '✧'], anger: ['💢'] };
         const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js';
         const FOCUS_LEDGER_API = window.FocusLedger;
         const NAV_SECTION_IDS = ['checkin-section', 'phone-section', 'tasks-section', 'focus-section', 'rest-section', 'sedentary-section', 'leave-section', 'stats-section', 'rules-section'];
@@ -1618,15 +1639,37 @@
         }
 
         function initCatCompanion() {
+            const stage = getElement('cat-stage');
+            const figure = getElement('cat-figure-button');
+
             getElement('feed-cat-button').addEventListener('click', function() {
                 feedCat();
             });
 
-            getElement('cat-figure-button').addEventListener('click', function() {
-                petCat();
+            figure.addEventListener('click', function() {
+                if (catSuppressClick) {
+                    catSuppressClick = false;
+                    return;
+                }
+                pokeCat();
+            });
+            figure.addEventListener('pointerdown', startCatStroke);
+            figure.addEventListener('pointermove', moveCatStroke);
+            figure.addEventListener('pointerup', endCatStroke);
+            figure.addEventListener('pointercancel', endCatStroke);
+            stage.addEventListener('pointermove', trackCatPointer);
+            stage.addEventListener('pointerleave', function() {
+                catHovering = false;
+                setCatLean(0);
+                refreshCatPose();
             });
 
+            initCatFish();
+            initCatYarn();
+            catWasFocusing = isCatFocusRunning();
             updateCatCompanion();
+            setTickHandler('cat', catTick);
+            catAct('meow', 1600, getCatGreeting());
         }
 
         function getTodayFedCount() {
@@ -1690,32 +1733,481 @@
             }, duration);
         }
 
-        function animateCat(reactionClass) {
-            const figure = getElement('cat-figure-button');
-            figure.classList.remove('is-petted', 'is-fed');
-            void figure.offsetWidth;
-            figure.classList.add(reactionClass);
-            setTimeout(() => {
-                figure.classList.remove(reactionClass);
-            }, reactionClass === 'is-fed' ? 950 : 760);
+        function isCatFocusRunning() {
+            return Boolean(currentFocusSession && currentFocusSession.status !== 'paused');
         }
 
-        function spawnCatHearts(count = 3) {
-            const burst = getElement('cat-heart-burst');
-            burst.innerHTML = '';
+        function isCatNight(date = new Date()) {
+            const hour = date.getHours();
+            return hour >= 22 || hour < 6;
+        }
 
-            for (let i = 0; i < count; i++) {
-                const heart = document.createElement('span');
-                heart.className = 'cat-heart';
-                heart.textContent = i % 3 === 0 ? '❤' : (i % 3 === 1 ? '♡' : '❤');
-                heart.style.setProperty('--heart-x', `${(Math.random() * 70) - 35}px`);
-                heart.style.animationDelay = `${i * 0.08}s`;
-                burst.appendChild(heart);
+        function getCatGreeting(date = new Date()) {
+            const hour = date.getHours();
+            if (hour < 5) return '这么晚还在努力呀…';
+            if (hour < 11) return '早上好呀~';
+            if (hour < 14) return '中午好，记得吃饭~';
+            if (hour < 18) return '下午好~';
+            if (hour < 22) return '晚上好~';
+            return '夜深啦，早点休息~';
+        }
+
+        function pickCatLine(lines) {
+            return lines[Math.floor(Math.random() * lines.length)];
+        }
+
+        function getCatBasePose(now = Date.now()) {
+            if (catSleeping) return 'sleep';
+            if (isCatFocusRunning()) return 'study';
+            return now - catLastActiveAt > CAT_LOAF_AFTER_MS ? 'loaf' : 'sit';
+        }
+
+        function getCatPose(now = Date.now()) {
+            if (catAction) return catAction.pose;
+            if (catHovering && !catSleeping) return 'curious';
+            return getCatBasePose(now);
+        }
+
+        function restartCatAnimation(element, className) {
+            element.classList.remove(className);
+            void element.offsetWidth;
+            element.classList.add(className);
+        }
+
+        function renderCatPose(pose, options = {}) {
+            const figure = getElement('cat-figure-button');
+            if (figure.dataset.pose !== pose) {
+                figure.dataset.pose = pose;
+                getElement('cat-stage').dataset.pose = pose;
+                figure.querySelectorAll('.cat-pose').forEach(image => {
+                    image.classList.toggle('is-active', image.dataset.pose === pose);
+                });
+            }
+            if (options.pop) restartCatAnimation(figure.querySelector('.cat-pop'), 'is-pop');
+        }
+
+        function refreshCatPose() {
+            renderCatPose(getCatPose());
+        }
+
+        // 临时动作：到时后交给 onDone 接续，没有就回到基础姿势；Infinity 表示等调用方结束
+        function catAct(pose, durationMs, line, onDone) {
+            clearTimeout(catActionTimer);
+            catAction = { pose };
+            renderCatPose(pose, { pop: true });
+            if (line) showCatBubble(line);
+            if (Number.isFinite(durationMs)) {
+                catActionTimer = setTimeout(() => {
+                    catAction = null;
+                    if (onDone) onDone();
+                    else refreshCatPose();
+                }, durationMs);
+            }
+        }
+
+        function endCatAction() {
+            clearTimeout(catActionTimer);
+            catAction = null;
+            refreshCatPose();
+        }
+
+        function showCatBubble(text, durationMs = 2200) {
+            const bubble = getElement('cat-bubble');
+            bubble.textContent = text;
+            bubble.hidden = false;
+            restartCatAnimation(bubble, 'is-showing');
+            clearTimeout(catBubbleTimer);
+            catBubbleTimer = setTimeout(() => {
+                bubble.hidden = true;
+            }, durationMs);
+        }
+
+        function spawnCatEffects(kind, count = 3) {
+            const layer = getElement('cat-heart-burst');
+            const symbols = CAT_EFFECT_SYMBOLS[kind];
+            for (let index = 0; index < count; index++) {
+                const effect = document.createElement('span');
+                effect.className = `cat-effect cat-effect-${kind}`;
+                effect.textContent = symbols[index % symbols.length];
+                effect.style.setProperty('--fx-x', `${Math.round(Math.random() * 120 - 60)}px`);
+                effect.style.setProperty('--fx-rot', `${Math.round(Math.random() * 40 - 20)}deg`);
+                effect.style.animationDelay = `${index * 90}ms`;
+                layer.appendChild(effect);
+                setTimeout(() => effect.remove(), 1500 + index * 90);
+            }
+        }
+
+        function markCatActive() {
+            catLastActiveAt = Date.now();
+        }
+
+        function wakeCat() {
+            catSleeping = false;
+            markCatActive();
+            catAct('stretch', 1500, '哈啊~ 睡醒啦');
+        }
+
+        function setCatFacing(direction) {
+            catFacing = direction < 0 ? -1 : 1;
+            getElement('cat-figure-button').style.setProperty('--cat-face', catFacing);
+        }
+
+        // 带回差地转向鼠标一侧，避免鼠标停在中线附近时来回翻转
+        function faceCatToward(clientX) {
+            const rect = getElement('cat-stage').getBoundingClientRect();
+            const offset = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+            if (offset < -0.25) setCatFacing(-1);
+            else if (offset > 0.25) setCatFacing(1);
+            return offset;
+        }
+
+        function setCatLean(degrees) {
+            const clamped = Math.max(-5, Math.min(5, degrees));
+            getElement('cat-figure-button').style.setProperty('--cat-lean', `${clamped.toFixed(1)}deg`);
+        }
+
+        function trackCatPointer(event) {
+            if (catStroke || catFishDrag || catYarn.dragging || catSleeping) return;
+            setCatLean(faceCatToward(event.clientX) * 5);
+            catHovering = true;
+            markCatActive();
+            refreshCatPose();
+        }
+
+        function catIdleChatter() {
+            if (isCatFocusRunning()) {
+                showCatBubble(pickCatLine(['陪你一起专注~', '认真的样子闪闪发光', '我也在看书哦']));
+            } else if (getAvailableCatFood() > 0) {
+                catAct('meow', 1500, pickCatLine(['肚子有点饿…有小鱼干吗？', '闻到小鱼干的味道了~']));
+            } else {
+                catAct('meow', 1400, pickCatLine(['今天也要加油哦', '摸摸我嘛~', '要不要扔毛线球？', '喵~']));
+            }
+        }
+
+        function catTick() {
+            if (document.hidden || !isSectionVisible('checkin-section')) return;
+            const now = Date.now();
+            const night = isCatNight();
+            getElement('cat-stage').dataset.time = night ? 'night' : 'day';
+
+            const sleepAfterMs = night ? CAT_NIGHT_SLEEP_AFTER_MS : CAT_SLEEP_AFTER_MS;
+            if (!catSleeping && !catAction && !catHovering && !isCatFocusRunning() && now - catLastActiveAt > sleepAfterMs) {
+                catSleeping = true;
+                setCatFacing(1);
+                setCatLean(0);
+                showCatBubble('困了…先睡一会儿', 1800);
             }
 
+            const pose = getCatPose(now);
+            renderCatPose(pose);
+            if (pose === 'sit' && Math.random() < 0.3) {
+                renderCatPose('blink');
+                setTimeout(() => {
+                    if (getElement('cat-figure-button').dataset.pose === 'blink') refreshCatPose();
+                }, 180);
+            } else if (!catSleeping && !catAction && !catHovering && Math.random() < 1 / 90) {
+                catIdleChatter();
+            }
+        }
+
+        // 撸猫：按住后来回拖动；只是点一下则交给 click 当作“戳一戳”
+        function startCatStroke(event) {
+            if (event.button !== 0) return;
+            catSuppressClick = false;
+            catStroke = { lastX: event.clientX, lastY: event.clientY, distance: 0, turns: 0, direction: 0, startedAt: Date.now(), petting: false, lastEffectAt: 0, belly: false };
+            event.currentTarget.setPointerCapture(event.pointerId);
+        }
+
+        function moveCatStroke(event) {
+            if (!catStroke) return;
+            const dx = event.clientX - catStroke.lastX;
+            const dy = event.clientY - catStroke.lastY;
+            catStroke.lastX = event.clientX;
+            catStroke.lastY = event.clientY;
+            catStroke.distance += Math.hypot(dx, dy);
+            const direction = Math.sign(dx);
+            if (direction && catStroke.direction && direction !== catStroke.direction) catStroke.turns += 1;
+            if (direction) catStroke.direction = direction;
+            if (!catStroke.petting && (catStroke.distance > 80 || catStroke.turns >= 2)) beginCatPetting();
+            if (catStroke.petting) continueCatPetting();
+        }
+
+        function beginCatPetting() {
+            catStroke.petting = true;
+            catSuppressClick = true;
+            catSleeping = false;
+            markCatActive();
+            getElement('cat-figure-button').classList.add('is-purring');
+            catAct('petted', Infinity, '呼噜呼噜~');
+        }
+
+        function continueCatPetting() {
+            const now = Date.now();
+            markCatActive();
+            if (now - catStroke.lastEffectAt > 420) {
+                catStroke.lastEffectAt = now;
+                spawnCatEffects(Math.random() < 0.6 ? 'heart' : 'note', 1);
+            }
+            if (!catStroke.belly && now - catStroke.startedAt > 2200 && getElement('cat-stage').dataset.mood === 'adoring') {
+                catStroke.belly = true;
+                catAct('belly', Infinity, '最喜欢你啦~');
+            }
+        }
+
+        function endCatStroke() {
+            if (!catStroke) return;
+            const wasPetting = catStroke.petting;
+            catStroke = null;
+            getElement('cat-figure-button').classList.remove('is-purring');
+            if (!wasPetting) return;
+            catAct('happy', 1300);
+            spawnCatEffects('heart', 3);
+            setCatTemporaryMessage(getCatPetMessage(), 2600);
+        }
+
+        function pokeCat() {
+            if (catSleeping) {
+                wakeCat();
+                return;
+            }
+            markCatActive();
+            const now = Date.now();
+            catPokeTimes = catPokeTimes.filter(time => now - time < 2500).concat(now);
+            if (catPokeTimes.length >= 7) {
+                catPokeTimes = [];
+                catAct('surprised', 1400, '喵呜！！吓我一跳', () => catAct('grumpy', 1800, '哼！'));
+                spawnCatEffects('spark', 3);
+            } else if (catPokeTimes.length >= 4) {
+                catAct('grumpy', 2000, '不要一直戳我啦！');
+                spawnCatEffects('anger', 1);
+            } else {
+                catAct(Math.random() < 0.5 ? 'meow' : 'happy', 1300, pickCatLine(CAT_POKE_LINES));
+                spawnCatEffects('heart', 1);
+            }
+        }
+
+        function isPointOverCat(clientX, clientY) {
+            const rect = getElement('cat-figure-button').getBoundingClientRect();
+            const insetX = rect.width * 0.18;
+            return clientX > rect.left + insetX && clientX < rect.right - insetX
+                && clientY > rect.top + rect.height * 0.12 && clientY < rect.bottom;
+        }
+
+        // 小鱼干：拖到猫咪身上喂食；直接点击（或键盘回车）也能喂
+        function initCatFish() {
+            const fish = getElement('cat-fish');
+            fish.addEventListener('pointerdown', function(event) {
+                if (event.button !== 0 || getAvailableCatFood() <= 0) return;
+                catFishDrag = { startX: event.clientX, startY: event.clientY, dx: 0, dy: 0, moved: false };
+                fish.setPointerCapture(event.pointerId);
+                fish.classList.add('is-dragging');
+            });
+            fish.addEventListener('pointermove', function(event) {
+                if (!catFishDrag) return;
+                catFishDrag.dx = event.clientX - catFishDrag.startX;
+                catFishDrag.dy = event.clientY - catFishDrag.startY;
+                if (!catFishDrag.moved && Math.hypot(catFishDrag.dx, catFishDrag.dy) > 4) {
+                    catFishDrag.moved = true;
+                    if (catSleeping) wakeCat();
+                    else catAct('curious', Infinity, '是小鱼干！');
+                }
+                fish.style.transform = `translate(${catFishDrag.dx}px, ${catFishDrag.dy}px) rotate(${Math.max(-20, Math.min(20, catFishDrag.dx / 6))}deg)`;
+                faceCatToward(event.clientX);
+            });
+            const finishFishDrag = function(event) {
+                if (!catFishDrag) return;
+                const drag = catFishDrag;
+                catFishDrag = null;
+                fish.classList.remove('is-dragging');
+                if (!drag.moved) {
+                    fish.style.transform = '';
+                    return;
+                }
+                catSuppressFishClick = true;
+                if (event.type === 'pointerup' && isPointOverCat(event.clientX, event.clientY)) {
+                    // 小鱼干缩进猫嘴里，再悄悄回到原位
+                    fish.style.transform = `translate(${drag.dx}px, ${drag.dy}px) scale(0.2)`;
+                    fish.style.opacity = '0';
+                    setTimeout(() => {
+                        fish.classList.add('is-dragging');
+                        fish.style.transform = '';
+                        fish.style.opacity = '';
+                        requestAnimationFrame(() => fish.classList.remove('is-dragging'));
+                    }, 320);
+                    feedCat();
+                } else {
+                    fish.style.transform = '';
+                    endCatAction();
+                }
+            };
+            fish.addEventListener('pointerup', finishFishDrag);
+            fish.addEventListener('pointercancel', finishFishDrag);
+            fish.addEventListener('click', function() {
+                if (catSuppressFishClick) {
+                    catSuppressFishClick = false;
+                    return;
+                }
+                feedCat();
+            });
+        }
+
+        // 毛线球：拖动后松手扔出去，滚到猫咪面前会被一爪拍回去
+        function initCatYarn() {
+            const yarn = getElement('cat-yarn');
+            yarn.addEventListener('pointerdown', function(event) {
+                if (event.button !== 0) return;
+                cancelAnimationFrame(catYarn.frame);
+                yarn.classList.remove('is-rolling');
+                Object.assign(catYarn, {
+                    dragging: true,
+                    moved: false,
+                    grabX: event.clientX - catYarn.x,
+                    grabY: event.clientY - catYarn.y,
+                    samples: [{ x: event.clientX, y: event.clientY, time: performance.now() }]
+                });
+                yarn.setPointerCapture(event.pointerId);
+                yarn.classList.add('is-dragging');
+            });
+            yarn.addEventListener('pointermove', function(event) {
+                if (!catYarn.dragging) return;
+                const bounds = getCatYarnBounds();
+                catYarn.x = Math.max(bounds.minX, Math.min(bounds.maxX, event.clientX - catYarn.grabX));
+                catYarn.y = Math.max(bounds.minY, Math.min(0, event.clientY - catYarn.grabY));
+                catYarn.samples.push({ x: event.clientX, y: event.clientY, time: performance.now() });
+                if (catYarn.samples.length > 6) catYarn.samples.shift();
+                renderCatYarn();
+                if (!catYarn.moved && Math.hypot(event.clientX - catYarn.samples[0].x, event.clientY - catYarn.samples[0].y) > 4) {
+                    catYarn.moved = true;
+                    if (catSleeping) wakeCat();
+                    else catAct('play', Infinity, '毛线球！');
+                }
+                if (catYarn.moved) faceCatToward(event.clientX);
+            });
+            const releaseYarn = function() {
+                if (!catYarn.dragging) return;
+                catYarn.dragging = false;
+                yarn.classList.remove('is-dragging');
+                if (!catYarn.moved) return;
+                catSuppressYarnClick = true;
+                const first = catYarn.samples[0];
+                const last = catYarn.samples[catYarn.samples.length - 1];
+                const elapsed = Math.max(16, last.time - first.time);
+                catYarn.vx = Math.max(-24, Math.min(24, (last.x - first.x) / elapsed * 16));
+                catYarn.vy = Math.max(-24, Math.min(24, (last.y - first.y) / elapsed * 16));
+                startCatYarnRoll();
+            };
+            yarn.addEventListener('pointerup', releaseYarn);
+            yarn.addEventListener('pointercancel', releaseYarn);
+            yarn.addEventListener('click', function() {
+                if (catSuppressYarnClick) {
+                    catSuppressYarnClick = false;
+                    return;
+                }
+                tossCatYarn();
+            });
+        }
+
+        // 毛线球坐标以初始位置为原点：x 向右为正，y 向上为负，地面是 y = 0
+        function getCatYarnBounds() {
+            const stage = getElement('cat-stage');
+            const yarn = getElement('cat-yarn');
+            return {
+                minX: 4 - yarn.offsetLeft,
+                maxX: stage.clientWidth - yarn.offsetWidth - 4 - yarn.offsetLeft,
+                minY: 4 - yarn.offsetTop
+            };
+        }
+
+        function getCatYarnCenterX() {
+            const yarn = getElement('cat-yarn');
+            return yarn.offsetLeft + catYarn.x + yarn.offsetWidth / 2;
+        }
+
+        function renderCatYarn() {
+            getElement('cat-yarn').style.transform = `translate(${catYarn.x}px, ${catYarn.y}px) rotate(${catYarn.angle}deg)`;
+        }
+
+        function tossCatYarn() {
+            const direction = getCatYarnCenterX() < getElement('cat-stage').clientWidth / 2 ? 1 : -1;
+            catYarn.vx = direction * 9;
+            catYarn.vy = -8;
+            if (catSleeping) wakeCat();
+            startCatYarnRoll();
+        }
+
+        function startCatYarnRoll() {
+            cancelAnimationFrame(catYarn.frame);
+            catYarn.batted = false;
+            catYarn.bats = 0;
+            getElement('cat-yarn').classList.add('is-rolling');
+            catYarn.frame = requestAnimationFrame(stepCatYarn);
+        }
+
+        function stepCatYarn() {
+            const bounds = getCatYarnBounds();
+            catYarn.vy += 0.7;
+            catYarn.x += catYarn.vx;
+            catYarn.y += catYarn.vy;
+            if (catYarn.y >= 0) {
+                catYarn.y = 0;
+                catYarn.vy = Math.abs(catYarn.vy) > 2 ? -catYarn.vy * 0.45 : 0;
+                catYarn.vx *= 0.94;
+            }
+            if (catYarn.x < bounds.minX || catYarn.x > bounds.maxX) {
+                catYarn.x = Math.max(bounds.minX, Math.min(bounds.maxX, catYarn.x));
+                catYarn.vx = -catYarn.vx * 0.6;
+            }
+            if (catYarn.y < bounds.minY) {
+                catYarn.y = bounds.minY;
+                catYarn.vy = Math.abs(catYarn.vy) * 0.3;
+            }
+            catYarn.angle += catYarn.vx * 3;
+            renderCatYarn();
+
+            const stageCenter = getElement('cat-stage').clientWidth / 2;
+            const inReach = Math.abs(getCatYarnCenterX() - stageCenter) < 70 && catYarn.y > -70;
+            if (inReach && !catYarn.batted && catYarn.bats < CAT_MAX_YARN_BATS) batCatYarn(stageCenter);
+
+            if (catYarn.y === 0 && catYarn.vy === 0 && Math.abs(catYarn.vx) < 0.2) {
+                getElement('cat-yarn').classList.remove('is-rolling');
+                if (catYarn.bats > 0) catAct('happy', 1400, '再扔一次嘛~');
+                else endCatAction();
+                return;
+            }
+            catYarn.frame = requestAnimationFrame(stepCatYarn);
+        }
+
+        function batCatYarn(stageCenter) {
+            const direction = getCatYarnCenterX() < stageCenter ? -1 : 1;
+            catYarn.batted = true;
+            catYarn.bats += 1;
+            catYarn.vx = direction * (7 + Math.random() * 4);
+            catYarn.vy = -(7 + Math.random() * 3);
+            setCatFacing(direction);
+            markCatActive();
+            catAct('play', 650, pickCatLine(['啪！', '抓到啦！', '喵呜~']));
+            spawnCatEffects('spark', 1);
             setTimeout(() => {
-                burst.innerHTML = '';
-            }, 1600);
+                catYarn.batted = false;
+            }, 700);
+        }
+
+        function catReactToEvent(type, detail) {
+            catSleeping = false;
+            markCatActive();
+            if (type === 'focusDone') {
+                if (detail === 'early') {
+                    catAct('happy', 1800, '辛苦啦，休息一下~');
+                } else {
+                    catAct('celebrate', 2800, '完成啦！你超棒的', () => catAct('happy', 1200));
+                    spawnCatEffects('spark', 6);
+                }
+            } else if (type === 'checkIn') {
+                catAct('meow', 1800, pickCatLine(['打卡成功！一起加油~', '来啦来啦~', '今天也元气满满！']));
+            } else if (type === 'checkOut') {
+                catAct('happy', 1800, pickCatLine(['辛苦啦~', '下班快乐！', '记得好好休息~']));
+                spawnCatEffects('heart', 2);
+            }
         }
 
         function updateCatCompanion() {
@@ -1737,7 +2229,17 @@
             }
             getElement('cat-affection-bar').style.width = `${Math.min(100, affection)}%`;
             getElement('cat-food-hint').textContent = `本工作日已专注 ${formatDurationCompact(totalFocusMs, true)}，连续专注 ${focusStreak} 天。每累计 60 分钟可兑换 1 个猫粮。`;
-            getElement('cat-figure-button').dataset.expression = catExpression;
+            getElement('cat-stage').dataset.mood = catExpression;
+            getElement('cat-fish-count').textContent = availableFood;
+            getElement('cat-fish').classList.toggle('is-empty', availableFood <= 0);
+
+            const focusing = isCatFocusRunning();
+            if (focusing !== catWasFocusing) {
+                catWasFocusing = focusing;
+                if (focusing) catSleeping = false;
+                markCatActive();
+                refreshCatPose();
+            }
 
             const feedButton = getElement('feed-cat-button');
             if (availableFood > 0) {
@@ -1754,8 +2256,11 @@
         }
 
         function feedCat() {
+            catSleeping = false;
+            markCatActive();
             const availableFood = getAvailableCatFood();
             if (availableFood <= 0) {
+                catAct('sad', 2400, '没有小鱼干了…再专注一会儿吧');
                 updateCatCompanion();
                 return;
             }
@@ -1765,33 +2270,30 @@
             catData.affection = (catData.affection || 0) + 1;
 
             saveData();
-            animateCat('is-fed');
-            spawnCatHearts(5);
+            catAct('eat', 2200, '嗷呜嗷呜…好吃！', () => {
+                catAct('happy', 1400, '谢谢投喂~');
+                spawnCatEffects('heart', 4);
+            });
+            spawnCatEffects('spark', 2);
             updateCatCompanion();
             setCatTemporaryMessage('喵呜！这口猫粮很好吃，好感度又上升啦。', 2600);
         }
 
-        function petCat() {
-            const affection = catData.affection || 0;
-            const focusStreak = calculateFocusStreak();
-            const petMessages = [];
-
-            if (affection >= 18) {
+        function getCatPetMessage() {
+            const petMessages = [
+                '猫咪抬头看着你，轻轻“喵”了一声。',
+                '你摸了摸猫咪，它开心地晃了晃尾巴。'
+            ];
+            if ((catData.affection || 0) >= 18) {
                 petMessages.push('呼噜呼噜……猫咪把脑袋凑过来让你继续摸。');
             }
-            if (focusStreak >= 7) {
+            if (calculateFocusStreak() >= 7) {
                 petMessages.push('猫咪眯起眼睛，像是知道你最近一直很努力。');
             }
             if (getAvailableCatFood() > 0) {
                 petMessages.push('猫咪闻到了你口袋里的猫粮味道，尾巴晃得更快了。');
             }
-
-            petMessages.push('猫咪抬头看着你，轻轻“喵”了一声。');
-            petMessages.push('你摸了摸猫咪，它开心地晃了晃尾巴。');
-
-            animateCat('is-petted');
-            spawnCatHearts(2);
-            setCatTemporaryMessage(petMessages[Math.floor(Math.random() * petMessages.length)], 2200);
+            return pickCatLine(petMessages);
         }
 
         async function requestFocusNotificationPermission() {
@@ -2353,6 +2855,7 @@
 
             saveData({ flushCompatibility: true });
             refreshFocusViews();
+            catReactToEvent('focusDone', record.completionKind);
             return { session: activeSession, record };
         }
 
@@ -4176,6 +4679,7 @@
             checkinData[today].meta[period].checkIn = null;
 
             updateAfterCheckinChange(today);
+            catReactToEvent('checkIn');
         }
         
         // 下班打卡
@@ -4190,6 +4694,7 @@
             checkinData[today].meta[period].checkOut = null;
 
             updateAfterCheckinChange(today);
+            catReactToEvent('checkOut');
         }
         
         // 更新打卡时间显示
